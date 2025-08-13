@@ -1,7 +1,7 @@
 from recommendations.content_based_filtering import ContentBasedFiltering
 from recommendations.market_trend_analyzer import MarketTrendAnalyzer
 from recommendations.peer_clustering import PeerClustering
-from recommendations.reccomendation_fusion import RecommendationFusion
+from recommendations.recommendation_fusion import RecommendationFusion
 from recommendations.explanation_generator import ExplanationGenerator
 from models import StudentProfile, DegreeProgram, Recommendation
 

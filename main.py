@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-import database.schemas as models, models, database.crud as crud
+import database.schemas as schema 
+import database.crud as crud
+import models
 from database.db import SessionLocal, engine
 from recommendations.recommendation_engine import RecommendationEngine
 
 # Create all database tables
-models.Base.metadata.create_all(bind=engine)
+schema.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Degree Recommendation System API",
@@ -70,7 +72,7 @@ def get_recommendations(student_id: str, db: Session = Depends(get_db)):
 
     recommendations = []
     for rec_data in recommendations_data:
-        # Create a recommendation schema object
+        # Create a recommendation model object
         recommendation_to_create = models.RecommendationCreate(**rec_data)
         # Save the recommendation to the database
         recommendation = crud.create_recommendation(db=db, recommendation=recommendation_to_create, profile_id=student_profile.profileId)

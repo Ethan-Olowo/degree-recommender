@@ -1,5 +1,5 @@
 from models import StudentProfile, Recommendation
-from abc import ABC, abstractmethod
+# from abc import ABC, abstractmethod
 
 class RecommendationAlgorithm:
     """
@@ -8,7 +8,7 @@ class RecommendationAlgorithm:
     def __init__(self):
         pass
 
-    @abstractmethod
+    # @abstractmethod
     def recommend(self, student_profile: StudentProfile) -> Recommendation:
         """
         Recommend a degree program based on the student's profile.

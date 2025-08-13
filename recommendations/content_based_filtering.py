@@ -1,7 +1,7 @@
-from reccomendation_algorithm import ReccomendationAlgorithm
+from recommendations.recommendation_algorithm import RecommendationAlgorithm
 from models import StudentProfile, DegreeProgram, Recommendation
 
-class ContentBasedFiltering(ReccomendationAlgorithm):
+class ContentBasedFiltering(RecommendationAlgorithm):
     """
     
     """

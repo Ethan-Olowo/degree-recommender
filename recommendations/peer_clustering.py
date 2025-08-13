@@ -1,5 +1,5 @@
-from reccomendation_algorithm import ReccomendationAlgorithm
-class PeerClustering(ReccomendationAlgorithm):
+from recommendations.recommendation_algorithm import RecommendationAlgorithm
+class PeerClustering(RecommendationAlgorithm):
     """
     
     """
