@@ -1,22 +1,20 @@
-
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-# Define the SQLite database URL
-SQLALCHEMY_DATABASE_URL = "sqlite:///./degree_recommender.db"
+# Load Supabase credentials from environment variables
+# SUPABASE_URL = os.getenv("SUPABASE_URL")
+# SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Create the SQLAlchemy engine
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False} # Needed for SQLite
-)
+# Supabase uses PostgreSQL; connection string format:
+# postgresql://<user>:<password>@<host>:<port>/<database>
+# You may need to parse SUPABASE_URL to get these details.
+# For example, if using the connection string directly:
+SQLALCHEMY_DATABASE_URL = os.getenv("SUPABASE_DB_URL")  # Set this in your .env
 
-# Create a SessionLocal class
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create a Base class for the models
 Base = declarative_base()
-
-
-

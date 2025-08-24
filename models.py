@@ -1,74 +1,73 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import uuid
 
-# Base models for DegreeProgram
+# Degree Program
 class DegreeProgramBase(BaseModel):
-    programName: str
-    programType: str
+    program_name: str
+    program_type: str
     description: Optional[str] = None
-    industries: List[str]
-    minimumGPA: float
-    requiredSubjects: List[str]
+    minimum_gpa: Optional[float] = None
 
 class DegreeProgramCreate(DegreeProgramBase):
-    pass
+    industries: List[str]
+    required_subjects: List[str]
 
 class DegreeProgram(DegreeProgramBase):
-    programId: str
+    program_id: uuid.UUID
+    industries: Optional[List[str]] = []
+    required_subjects: Optional[List[str]] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# Base models for Recommendation
+# Recommendation
 class RecommendationBase(BaseModel):
-    degreeProgramId: str
-    confidenceScore: float
-    algorithmSource: str
-    marketScore: float
+    program_id: uuid.UUID
+    confidence_score: float
+    algorithm_source: str
+    market_score: float
 
 class RecommendationCreate(RecommendationBase):
-    pass
+    explanation: Optional[str] = None
 
 class Recommendation(RecommendationBase):
-    recommendationId: str
-    profileId: str
+    recommendation_id: uuid.UUID
+    profile_id: uuid.UUID
     explanation: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# Base models for StudentProfile
+# Student Profile
 class StudentProfileBase(BaseModel):
-    academicPerformance: Dict[str, Any]
-    careerPreferences: Dict[str, Any]
-    extracurricularActivities: List[str]
-    personalInterests: List[str]
-    socioeconomicIndicators: Dict[str, Any]
+    academic_data_id: Optional[uuid.UUID] = None
+    personal_interests: Optional[List[str]] = []
+    socioeconomic: Optional[Dict[str, Any]] = None
 
 class StudentProfileCreate(StudentProfileBase):
-    pass
+    personal_interests: List[str]
 
 class StudentProfile(StudentProfileBase):
-    profileId: str
-    studentId: str
-    recommendations: List[Recommendation] = []
+    profile_id: uuid.UUID
+    user_id: uuid.UUID
+    recommendations: Optional[List[Recommendation]] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# Base models for Student
-class StudentBase(BaseModel):
-    firstName: str
-    lastName: str
-    email: EmailStr
+# User
+class UserBase(BaseModel):
+    full_name: str
+    is_admin: bool = False
+    auth_id: uuid.UUID
 
-class StudentCreate(StudentBase):
-    password: str
+class UserCreate(UserBase):
+    pass
 
-class Student(StudentBase):
-    studentId: str
-    profile: Optional[StudentProfile] = None
+class User(UserBase):
+    user_id: uuid.UUID
+    profiles: Optional[List[StudentProfile]] = []
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True

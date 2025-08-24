@@ -26,56 +26,54 @@ def get_db():
 # Initialize the recommendation engine
 recommendation_engine = RecommendationEngine()
 
-@app.post("/students/", response_model=models.Student, tags=["Students"])
-def create_student(student: models.StudentCreate, db: Session = Depends(get_db)):
-    """
-    Create a new student.
-    """
-    db_student = crud.get_student_by_email(db, email=student.email)
-    if db_student:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    return crud.create_student(db=db, student=student)
 
-@app.get("/students/{student_id}", response_model=models.Student, tags=["Students"])
-def read_student(student_id: str, db: Session = Depends(get_db)):
+# Users
+@app.post("/users/", response_model=models.User, tags=["Users"])
+def create_user(user: models.UserCreate, db: Session = Depends(get_db)):
     """
-    Get a student by their ID.
+    Create a new user.
     """
-    db_student = crud.get_student(db, student_id=student_id)
-    if db_student is None:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return db_student
+    db_user = crud.get_user_by_auth_id(db, auth_id=user.auth_id)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Auth ID already registered")
+    return crud.create_user(db=db, user=user)
 
-@app.post("/students/{student_id}/profile/", response_model=models.StudentProfile, tags=["Student Profiles"])
-def create_student_profile(student_id: str, profile: models.StudentProfileCreate, db: Session = Depends(get_db)):
+@app.get("/users/{user_id}", response_model=models.User, tags=["Users"])
+def read_user(user_id: str, db: Session = Depends(get_db)):
     """
-    Create a profile for a student.
+    Get a user by their ID.
     """
-    return crud.create_student_profile(db=db, profile=profile, student_id=student_id)
+    db_user = crud.get_user(db, user_id=user_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
 
+# Profile
+@app.post("/users/{user_id}/profile/", response_model=models.StudentProfile, tags=["Student Profiles"])
+def create_student_profile(user_id: str, profile: models.StudentProfileCreate, db: Session = Depends(get_db)):
+    """
+    Create a profile for a user.
+    """
+    return crud.create_student_profile(db=db, profile=profile, user_id=user_id)
 
-@app.get("/students/{student_id}/recommendations/", response_model=list[models.Recommendation], tags=["Recommendations"])
-def get_recommendations(student_id: str, db: Session = Depends(get_db)):
+# Recommendations
+@app.get("/users/{user_id}/recommendations/", response_model=list[models.Recommendation], tags=["Recommendations"])
+def get_recommendations(user_id: str, db: Session = Depends(get_db)):
     """
-    Generate and retrieve degree recommendations for a student.
+    Generate and retrieve degree recommendations for a user.
     """
-    student_profile = crud.get_student_profile(db, student_id=student_id)
+    student_profile = crud.get_student_profile(db, user_id=user_id)
     if not student_profile:
-        raise HTTPException(status_code=404, detail="Student profile not found. Please create a profile first.")
+        raise HTTPException(status_code=404, detail="User profile not found. Please create a profile first.")
 
-    # In a real application, you would have different recommendation algorithms.
-    # Here we simulate getting recommendations from our engine.
     recommendations_data = recommendation_engine.generate_recommendations(student_profile)
 
-    # Clear existing recommendations before adding new ones
-    crud.delete_recommendations_by_profile_id(db, profile_id=student_profile.profileId)
+    crud.delete_recommendations_by_profile_id(db, profile_id=student_profile.profile_id)
 
     recommendations = []
     for rec_data in recommendations_data:
-        # Create a recommendation model object
         recommendation_to_create = models.RecommendationCreate(**rec_data)
-        # Save the recommendation to the database
-        recommendation = crud.create_recommendation(db=db, recommendation=recommendation_to_create, profile_id=student_profile.profileId)
+        recommendation = crud.create_recommendation(db=db, recommendation=recommendation_to_create, profile_id=student_profile.profile_id)
         recommendations.append(recommendation)
 
     return recommendations
@@ -91,7 +89,7 @@ def get_recommendation_explanation(recommendation_id: str, db: Session = Depends
 
     if not recommendation.explanation:
         student_profile = crud.get_student_profile_by_recommendation(db, recommendation_id=recommendation_id)
-        degree_program = crud.get_degree_program(db, program_id=recommendation.degreeProgramId)
+        degree_program = crud.get_degree_program(db, program_id=recommendation.program_id)
 
         explanation = recommendation_engine.generate_explanation(student_profile, degree_program, recommendation)
         crud.update_recommendation_explanation(db, recommendation_id=recommendation_id, explanation=explanation)
@@ -99,6 +97,7 @@ def get_recommendation_explanation(recommendation_id: str, db: Session = Depends
 
     return {"recommendation_id": recommendation_id, "explanation": recommendation.explanation}
 
+# Degree Programs
 @app.post("/degree_programs/", response_model=models.DegreeProgram, tags=["Degree Programs"])
 def create_degree_program(program: models.DegreeProgramCreate, db: Session = Depends(get_db)):
     """
