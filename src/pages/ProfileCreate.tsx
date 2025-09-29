@@ -89,11 +89,7 @@ const ProfileCreate = () => {
       setIsLoading(true);
       
       // Get user_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('user_id')
-        .eq('auth_id', user?.id)
-        .single();
+      const userData = { user_id: user?.id };
 
       if (!userData) {
         throw new Error('User not found');
@@ -103,6 +99,7 @@ const ProfileCreate = () => {
       const { data: academicData } = await supabase
         .from('academic_data')
         .insert({
+          user_id: userData.user_id,
           gpa: formData.gpa ? parseFloat(formData.gpa) : null,
           grade_system: formData.gradeSystem || null,
           school_type: formData.schoolType || null
@@ -110,23 +107,13 @@ const ProfileCreate = () => {
         .select()
         .single();
 
-      // Create student profile
-      const { data: profileData } = await supabase
-        .from('student_profiles')
-        .insert({
-          user_id: userData.user_id,
-          academic_data_id: academicData?.academic_data_id
-        })
-        .select()
-        .single();
 
-      if (profileData) {
         // Create socioeconomic indicators
         if (formData.gender || formData.incomeLevel || formData.countryCode) {
           await supabase
             .from('socioeconomic_indicators')
             .insert({
-              profile_id: profileData.profile_id,
+              user_id: userData.user_id,
               gender: formData.gender || null,
               income_level: formData.incomeLevel || null,
               country_code: formData.countryCode || null,
@@ -137,7 +124,7 @@ const ProfileCreate = () => {
         // Create personal interests
         if (formData.interests.length > 0) {
           const interestRecords = formData.interests.map(interest => ({
-            profile_id: profileData.profile_id,
+            user_id: userData.user_id,
             interest
           }));
           
@@ -145,7 +132,7 @@ const ProfileCreate = () => {
             .from('personal_interests')
             .insert(interestRecords);
         }
-      }
+      
 
       toast({
         title: "Profile Created!",

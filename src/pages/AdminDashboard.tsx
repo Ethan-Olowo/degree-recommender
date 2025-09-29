@@ -11,7 +11,6 @@ interface Stats {
   totalUsers: number;
   totalPrograms: number;
   totalRecommendations: number;
-  totalProfiles: number;
 }
 
 const AdminDashboard = () => {
@@ -19,7 +18,6 @@ const AdminDashboard = () => {
     totalUsers: 0,
     totalPrograms: 0,
     totalRecommendations: 0,
-    totalProfiles: 0
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,16 +42,10 @@ const AdminDashboard = () => {
         .from('recommendations')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch profile count
-      const { count: profileCount } = await supabase
-        .from('student_profiles')
-        .select('*', { count: 'exact', head: true });
-
       setStats({
         totalUsers: userCount || 0,
         totalPrograms: programCount || 0,
-        totalRecommendations: recommendationCount || 0,
-        totalProfiles: profileCount || 0
+        totalRecommendations: recommendationCount || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -84,13 +76,6 @@ const AdminDashboard = () => {
       description: 'Total recommendations generated',
       color: 'text-warning'
     },
-    {
-      title: 'Student Profiles',
-      value: stats.totalProfiles,
-      icon: Activity,
-      description: 'Completed student profiles',
-      color: 'text-accent'
-    }
   ];
 
   const adminActions = [

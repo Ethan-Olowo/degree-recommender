@@ -20,20 +20,31 @@ export type Database = {
           gpa: number | null
           grade_system: string | null
           school_type: string | null
+          user_id: string
         }
         Insert: {
           academic_data_id?: string
           gpa?: number | null
           grade_system?: string | null
           school_type?: string | null
+          user_id: string
         }
         Update: {
           academic_data_id?: string
           gpa?: number | null
           grade_system?: string | null
           school_type?: string | null
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "academic_data_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       countries: {
         Row: {
@@ -65,14 +76,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_degree_industries_industry"
+            foreignKeyName: "degree_industries_industry_id_fkey"
             columns: ["industry_id"]
             isOneToOne: false
             referencedRelation: "industries"
             referencedColumns: ["industry_id"]
           },
           {
-            foreignKeyName: "fk_degree_industries_program"
+            foreignKeyName: "degree_industries_program_id_fkey"
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "degree_programs"
@@ -143,45 +154,45 @@ export type Database = {
       market_indicator_values: {
         Row: {
           country_code: string | null
-          indicator_type_id: string | null
+          indicator_type_id: string
           industry_id: string | null
           last_updated: string | null
-          value: number | null
+          value: number
           value_id: string
         }
         Insert: {
           country_code?: string | null
-          indicator_type_id?: string | null
+          indicator_type_id: string
           industry_id?: string | null
           last_updated?: string | null
-          value?: number | null
+          value: number
           value_id?: string
         }
         Update: {
           country_code?: string | null
-          indicator_type_id?: string | null
+          indicator_type_id?: string
           industry_id?: string | null
           last_updated?: string | null
-          value?: number | null
+          value?: number
           value_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "fk_market_values_country"
+            foreignKeyName: "market_indicator_values_country_code_fkey"
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "countries"
             referencedColumns: ["country_code"]
           },
           {
-            foreignKeyName: "fk_market_values_indicator"
+            foreignKeyName: "market_indicator_values_indicator_type_id_fkey"
             columns: ["indicator_type_id"]
             isOneToOne: false
             referencedRelation: "indicator_types"
             referencedColumns: ["indicator_type_id"]
           },
           {
-            foreignKeyName: "fk_market_values_industry"
+            foreignKeyName: "market_indicator_values_industry_id_fkey"
             columns: ["industry_id"]
             isOneToOne: false
             referencedRelation: "industries"
@@ -192,23 +203,23 @@ export type Database = {
       personal_interests: {
         Row: {
           interest: string
-          profile_id: string
+          user_id: string
         }
         Insert: {
           interest: string
-          profile_id: string
+          user_id: string
         }
         Update: {
           interest?: string
-          profile_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "fk_interests_profile"
-            columns: ["profile_id"]
+            foreignKeyName: "personal_interests_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["profile_id"]
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -218,59 +229,59 @@ export type Database = {
           confidence_score: number | null
           explanation: string | null
           market_score: number | null
-          profile_id: string | null
-          program_id: string | null
+          program_id: string
           recommendation_id: string
+          user_id: string
         }
         Insert: {
           algorithm_source?: string | null
           confidence_score?: number | null
           explanation?: string | null
           market_score?: number | null
-          profile_id?: string | null
-          program_id?: string | null
+          program_id: string
           recommendation_id?: string
+          user_id: string
         }
         Update: {
           algorithm_source?: string | null
           confidence_score?: number | null
           explanation?: string | null
           market_score?: number | null
-          profile_id?: string | null
-          program_id?: string | null
+          program_id?: string
           recommendation_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "fk_recommendations_profile"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["profile_id"]
-          },
-          {
-            foreignKeyName: "fk_recommendations_program"
+            foreignKeyName: "recommendations_program_id_fkey"
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "degree_programs"
             referencedColumns: ["program_id"]
           },
+          {
+            foreignKeyName: "recommendations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       reports: {
         Row: {
-          generated_at: string | null
-          recommendation_stats: string | null
+          generated_at: string
+          recommendation_stats: Json | null
           report_id: string
         }
         Insert: {
-          generated_at?: string | null
-          recommendation_stats?: string | null
+          generated_at?: string
+          recommendation_stats?: Json | null
           report_id?: string
         }
         Update: {
-          generated_at?: string | null
-          recommendation_stats?: string | null
+          generated_at?: string
+          recommendation_stats?: Json | null
           report_id?: string
         }
         Relationships: []
@@ -280,68 +291,35 @@ export type Database = {
           country_code: string | null
           gender: string | null
           income_level: string | null
-          profile_id: string
           school_type: string | null
+          user_id: string
         }
         Insert: {
           country_code?: string | null
           gender?: string | null
           income_level?: string | null
-          profile_id: string
           school_type?: string | null
+          user_id: string
         }
         Update: {
           country_code?: string | null
           gender?: string | null
           income_level?: string | null
-          profile_id?: string
           school_type?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "fk_socioeconomic_country"
+            foreignKeyName: "socioeconomic_indicators_country_code_fkey"
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "countries"
             referencedColumns: ["country_code"]
           },
           {
-            foreignKeyName: "fk_socioeconomic_profile"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "student_profiles"
-            referencedColumns: ["profile_id"]
-          },
-        ]
-      }
-      student_profiles: {
-        Row: {
-          academic_data_id: string | null
-          profile_id: string
-          user_id: string
-        }
-        Insert: {
-          academic_data_id?: string | null
-          profile_id?: string
-          user_id: string
-        }
-        Update: {
-          academic_data_id?: string | null
-          profile_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_profiles_academic"
-            columns: ["academic_data_id"]
-            isOneToOne: false
-            referencedRelation: "academic_data"
-            referencedColumns: ["academic_data_id"]
-          },
-          {
-            foreignKeyName: "fk_profiles_user"
+            foreignKeyName: "socioeconomic_indicators_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["user_id"]
           },
@@ -365,14 +343,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_subject_grades_academic"
+            foreignKeyName: "subject_grades_academic_data_id_fkey"
             columns: ["academic_data_id"]
             isOneToOne: false
             referencedRelation: "academic_data"
             referencedColumns: ["academic_data_id"]
           },
           {
-            foreignKeyName: "fk_subject_grades_subject"
+            foreignKeyName: "subject_grades_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
@@ -398,14 +376,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_subject_requirements_program"
+            foreignKeyName: "subject_requirements_program_id_fkey"
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "degree_programs"
             referencedColumns: ["program_id"]
           },
           {
-            foreignKeyName: "fk_subject_requirements_subject"
+            foreignKeyName: "subject_requirements_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
@@ -430,20 +408,17 @@ export type Database = {
       }
       users: {
         Row: {
-          auth_id: string
-          full_name: string
+          full_name: string | null
           is_admin: boolean
           user_id: string
         }
         Insert: {
-          auth_id: string
-          full_name: string
+          full_name?: string | null
           is_admin?: boolean
-          user_id?: string
+          user_id: string
         }
         Update: {
-          auth_id?: string
-          full_name?: string
+          full_name?: string | null
           is_admin?: boolean
           user_id?: string
         }
