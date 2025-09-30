@@ -10,7 +10,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Save, User, BookOpen, Target, Plus, X, CheckCircle } from 'lucide-react';
+import { Loader2, Save, User, BookOpen, Target, Plus, X, CheckCircle, Globe, Wallet } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,6 +41,19 @@ interface Subject {
   subject_name: string;
 }
 
+interface SocioeconomicIndicators {
+  user_id: string;
+  country_code: string | null;
+  income_level: string | null;
+  gender: string | null;
+  school_type: string | null;
+}
+
+interface Country {
+  country_code: string;
+  country_name: string;
+}
+
 const Profile = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +65,8 @@ const Profile = () => {
   const [interests, setInterests] = useState<PersonalInterest[]>([]);
   const [subjectGrades, setSubjectGrades] = useState<SubjectGrade[]>([]);
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
+  const [socioeconomicData, setSocioeconomicData] = useState<SocioeconomicIndicators | null>(null);
+  const [countries, setCountries] = useState<Country[]>([]);
   
   // Form states
   const [newInterest, setNewInterest] = useState('');
@@ -59,13 +74,22 @@ const Profile = () => {
   const [newGrade, setNewGrade] = useState('');
 
   // Calculate profile completion
-  const totalItems = interests.length + subjectGrades.length;
-  const isProfileComplete = totalItems === 10;
-  const completionPercentage = Math.min((totalItems / 10) * 100, 100);
+  // Count filled socioeconomic fields
+  const socioeconomicFilledCount = socioeconomicData ? [
+    socioeconomicData.country_code,
+    socioeconomicData.income_level,
+    socioeconomicData.gender,
+    socioeconomicData.school_type
+  ].filter(field => field !== null && field !== '').length : 0;
+
+  const totalItems = interests.length + subjectGrades.length + socioeconomicFilledCount;
+  const isProfileComplete = totalItems >= 15;
+  const completionPercentage = Math.min((totalItems / 15) * 100, 100);
 
   useEffect(() => {
     fetchProfileData();
     fetchAvailableSubjects();
+    fetchCountries();
   }, [user]);
 
   const fetchProfileData = async () => {
@@ -112,32 +136,60 @@ const Profile = () => {
           `)
           .eq('academic_data_id', academicData.academic_data_id);
 
-        setSubjectGrades(gradesData || []);
-      }
-    } catch (error) {
-      console.error('Error fetching profile data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load profile data',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      setSubjectGrades(gradesData || []);
     }
-  };
+    
+    // Fetch socioeconomic data
+    const { data: socioData } = await supabase
+      .from('socioeconomic_indicators')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  const fetchAvailableSubjects = async () => {
-    try {
-      const { data } = await supabase
-        .from('subjects')
-        .select('*')
-        .order('subject_name');
+    setSocioeconomicData(socioData || {
+      user_id: user.id,
+      country_code: null,
+      income_level: null,
+      gender: null,
+      school_type: null,
+    });
+  } catch (error) {
+    console.error('Error fetching profile data:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load profile data',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-      setAvailableSubjects(data || []);
-    } catch (error) {
-      console.error('Error fetching subjects:', error);
-    }
-  };
+const fetchAvailableSubjects = async () => {
+  try {
+    const { data } = await supabase
+      .from('subjects')
+      .select('*')
+      .order('subject_name');
+
+    setAvailableSubjects(data || []);
+  } catch (error) {
+    console.error('Error fetching subjects:', error);
+  }
+};
+
+const fetchCountries = async () => {
+  try {
+    const { data } = await supabase
+      .from('countries')
+      .select('*')
+      .order('country_name');
+
+    setCountries(data || []);
+  } catch (error) {
+    console.error('Error fetching countries:', error);
+  }
+};
 
   const handleSaveBasicInfo = async () => {
     setIsSaving(true);
@@ -195,7 +247,7 @@ const Profile = () => {
   };
 
   const handleAddInterest = async () => {
-    if (!newInterest.trim() || totalItems >= 10) return;
+    if (!newInterest.trim() || totalItems >= 15) return;
 
     try {
       const { error } = await supabase
@@ -249,7 +301,7 @@ const Profile = () => {
   };
 
   const handleAddSubjectGrade = async () => {
-    if (!selectedSubject || !newGrade.trim() || totalItems >= 10 || !academicData) return;
+    if (!selectedSubject || !newGrade.trim() || totalItems >= 15 || !academicData) return;
 
     try {
       const { error } = await supabase
@@ -306,6 +358,62 @@ const Profile = () => {
     }
   };
 
+  const handleSaveSocioeconomic = async () => {
+    setIsSaving(true);
+    try {
+      if (!socioeconomicData) return;
+
+      // Check if record exists
+      const { data: existingData } = await supabase
+        .from('socioeconomic_indicators')
+        .select('*')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      if (existingData) {
+        // Update existing record
+        const { error } = await supabase
+          .from('socioeconomic_indicators')
+          .update({
+            country_code: socioeconomicData.country_code,
+            income_level: socioeconomicData.income_level,
+            gender: socioeconomicData.gender,
+            school_type: socioeconomicData.school_type,
+          })
+          .eq('user_id', user?.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('socioeconomic_indicators')
+          .insert({
+            user_id: user?.id,
+            country_code: socioeconomicData.country_code,
+            income_level: socioeconomicData.income_level,
+            gender: socioeconomicData.gender,
+            school_type: socioeconomicData.school_type,
+          });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Socioeconomic data updated successfully',
+      });
+    } catch (error) {
+      console.error('Error saving socioeconomic data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save socioeconomic data',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <ProtectedRoute>
@@ -345,25 +453,29 @@ const Profile = () => {
                 )}
               </CardTitle>
               <CardDescription>
-                Add {10 - totalItems} more {totalItems === 9 ? 'item' : 'items'} (interests or grades) to complete your profile
+                Add {15 - totalItems} more {totalItems === 14 ? 'item' : 'items'} (interests, grades, or socioeconomic data) to complete your profile
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Progress</span>
-                  <span>{totalItems}/10 items</span>
+                  <span>{totalItems}/15 items</span>
                 </div>
                 <Progress value={completionPercentage} className="h-3" />
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-3 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary" />
                   <span>{interests.length} Interests</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-primary" />
-                  <span>{subjectGrades.length} Subject Grades</span>
+                  <span>{subjectGrades.length} Grades</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span>{socioeconomicFilledCount} Socioeconomic</span>
                 </div>
               </div>
             </CardContent>
@@ -371,8 +483,9 @@ const Profile = () => {
 
           {/* Profile Tabs */}
           <Tabs defaultValue="basic" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="socioeconomic">Socioeconomic</TabsTrigger>
               <TabsTrigger value="interests">Interests</TabsTrigger>
               <TabsTrigger value="grades">Grades</TabsTrigger>
             </TabsList>
@@ -479,6 +592,121 @@ const Profile = () => {
               </Card>
             </TabsContent>
 
+            {/* Socioeconomic Tab */}
+            <TabsContent value="socioeconomic">
+              <Card className="glass">
+                <CardHeader>
+                  <CardTitle>Socioeconomic Information</CardTitle>
+                  <CardDescription>
+                    Add your socioeconomic data to improve recommendation accuracy
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="country">Country</Label>
+                      <Select
+                        value={socioeconomicData?.country_code || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          country_code: value,
+                        }))}
+                      >
+                        <SelectTrigger id="country">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countries.map((country) => (
+                            <SelectItem key={country.country_code} value={country.country_code}>
+                              {country.country_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="income">Income Level</Label>
+                      <Select
+                        value={socioeconomicData?.income_level || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          income_level: value,
+                        }))}
+                      >
+                        <SelectTrigger id="income">
+                          <SelectValue placeholder="Select income level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low Income</SelectItem>
+                          <SelectItem value="lower-middle">Lower Middle Income</SelectItem>
+                          <SelectItem value="middle">Middle Income</SelectItem>
+                          <SelectItem value="upper-middle">Upper Middle Income</SelectItem>
+                          <SelectItem value="high">High Income</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="gender">Gender</Label>
+                      <Select
+                        value={socioeconomicData?.gender || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          gender: value,
+                        }))}
+                      >
+                        <SelectTrigger id="gender">
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="non-binary">Non-binary</SelectItem>
+                          <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="socioSchoolType">School Type</Label>
+                      <Select
+                        value={socioeconomicData?.school_type || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          school_type: value,
+                        }))}
+                      >
+                        <SelectTrigger id="socioSchoolType">
+                          <SelectValue placeholder="Select school type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="public">Public School</SelectItem>
+                          <SelectItem value="private">Private School</SelectItem>
+                          <SelectItem value="international">International School</SelectItem>
+                          <SelectItem value="homeschool">Homeschool</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleSaveSocioeconomic}
+                    disabled={isSaving}
+                    className="w-full"
+                    variant="gradient"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Save Socioeconomic Information
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Interests Tab */}
             <TabsContent value="interests">
               <Card className="glass">
@@ -489,23 +717,23 @@ const Profile = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {totalItems < 10 && (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter an interest (e.g., Technology, Arts, Science)"
-                        value={newInterest}
-                        onChange={(e) => setNewInterest(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddInterest()}
-                      />
-                      <Button
-                        onClick={handleAddInterest}
-                        disabled={!newInterest.trim() || totalItems >= 10}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add
-                      </Button>
-                    </div>
-                  )}
+                {totalItems < 15 && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter an interest (e.g., Technology, Arts, Science)"
+                      value={newInterest}
+                      onChange={(e) => setNewInterest(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddInterest()}
+                    />
+                    <Button
+                      onClick={handleAddInterest}
+                      disabled={!newInterest.trim() || totalItems >= 15}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </Button>
+                  </div>
+                )}
 
                   <div className="flex flex-wrap gap-2">
                     {interests.map((interest) => (
@@ -552,7 +780,7 @@ const Profile = () => {
                     </div>
                   )}
 
-                  {academicData && totalItems < 10 && (
+                  {academicData && totalItems < 15 && (
                     <div className="flex gap-2">
                       <Select
                         value={selectedSubject}
@@ -579,7 +807,7 @@ const Profile = () => {
                       />
                       <Button
                         onClick={handleAddSubjectGrade}
-                        disabled={!selectedSubject || !newGrade.trim() || totalItems >= 10}
+                        disabled={!selectedSubject || !newGrade.trim() || totalItems >= 15}
                       >
                         <Plus className="h-4 w-4" />
                         Add
