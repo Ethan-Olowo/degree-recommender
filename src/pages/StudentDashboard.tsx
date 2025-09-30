@@ -22,87 +22,69 @@ interface Recommendation {
   };
 }
 
-interface StudentProfile {
-  profile_id: string;
-  academic_data_id: string | null;
+interface ProfileData {
+  user_id: string;
+  academic_data?: {
+    academic_data_id: string;
+  };
 }
 
 const StudentDashboard = () => {
   const { user } = useAuth();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
-      fetchProfile();
-      fetchRecommendations();
+      fetchProfileAndRecommendations();
     }
   }, [user]);
 
-  const fetchProfile = async () => {
+  const fetchProfileAndRecommendations = async () => {
     try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('user_id')
-        .eq('auth_id', user?.id)
-        .single();
+      // Fetch user profile and academic data
+      const { data: academicData } = await supabase
+        .from('academic_data')
+        .select('academic_data_id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
 
-      if (userData) {
-        const { data: profileData } = await supabase
-          .from('student_profiles')
-          .select('profile_id, academic_data_id')
-          .eq('user_id', userData.user_id)
-          .maybeSingle();
+      if (academicData) {
+        setProfileData({
+          user_id: user?.id || '',
+          academic_data: academicData
+        });
+      } else {
+        setProfileData({
+          user_id: user?.id || ''
+        });
+      }
 
-        setProfile(profileData);
+      // Fetch recommendations
+      const { data: recData } = await supabase
+        .from('recommendations')
+        .select(`
+          recommendation_id,
+          program_id,
+          confidence_score,
+          market_score,
+          explanation,
+          degree_programs (
+            program_name,
+            program_type,
+            description
+          )
+        `)
+        .eq('user_id', user?.id)
+        .order('confidence_score', { ascending: false })
+        .limit(6);
+
+      if (recData) {
+        setRecommendations(recData as any);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
-
-  const fetchRecommendations = async () => {
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('user_id')
-        .eq('auth_id', user?.id)
-        .single();
-
-      if (userData) {
-        const { data: profileData } = await supabase
-          .from('student_profiles')
-          .select('profile_id')
-          .eq('user_id', userData.user_id)
-          .maybeSingle();
-
-        if (profileData) {
-          const { data } = await supabase
-            .from('recommendations')
-            .select(`
-              recommendation_id,
-              program_id,
-              confidence_score,
-              market_score,
-              explanation,
-              degree_programs (
-                program_name,
-                program_type,
-                description
-              )
-            `)
-            .eq('profile_id', profileData.profile_id)
-            .order('confidence_score', { ascending: false })
-            .limit(6);
-
-          if (data) {
-            setRecommendations(data as any);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +111,7 @@ const StudentDashboard = () => {
           </div>
 
           {/* Profile Status */}
-          {!profile?.academic_data_id && (
+          {!profileData?.academic_data && (
             <Card className="glass border-warning/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-warning">
@@ -185,7 +167,7 @@ const StudentDashboard = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Profile Status</p>
                     <p className="text-2xl font-bold">
-                      {profile?.academic_data_id ? 'Complete' : 'Incomplete'}
+                      {profileData?.academic_data ? 'Complete' : 'Incomplete'}
                     </p>
                   </div>
                   <User className="h-8 w-8 text-primary" />
