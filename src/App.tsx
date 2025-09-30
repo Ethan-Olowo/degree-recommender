@@ -8,6 +8,8 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import StudentDashboard from "./pages/StudentDashboard";
 import ExploreDegrees from "./pages/ExploreDegrees";
+import DegreeDetails from "./pages/DegreeDetails";
+import ComparePrograms from "./pages/ComparePrograms";
 import ProfileCreate from "./pages/ProfileCreate";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -27,6 +29,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<StudentDashboard />} />
             <Route path="/explore" element={<ExploreDegrees />} />
+            <Route path="/degree/:programId" element={<DegreeDetails />} />
+            <Route path="/compare" element={<ComparePrograms />} />
             <Route path="/profile/create" element={<ProfileCreate />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminDashboard />} />
