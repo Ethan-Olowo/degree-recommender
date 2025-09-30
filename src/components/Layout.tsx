@@ -20,7 +20,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
             <GraduationCap className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold gradient-text">EduFind</span>
+            <span className="text-xl font-bold gradient-text">EduAdvisor</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">

@@ -89,7 +89,7 @@ const Landing = () => {
         {/* Features Section */}
         <section className="space-y-12">
           <div className="text-center space-y-4">
-            <h2 className="text-4xl font-bold">Why Choose <span className="gradient-text">EduFind</span>?</h2>
+            <h2 className="text-4xl font-bold">Why Choose <span className="gradient-text">EduAdvisor</span>?</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Our platform combines cutting-edge technology with comprehensive data to help you make the best educational decisions.
             </p>
@@ -149,7 +149,7 @@ const Landing = () => {
           <Card className="p-12 bg-gradient-card">
             <h2 className="text-3xl font-bold mb-4">Ready to Find Your Perfect Degree?</h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join thousands of students who have discovered their ideal educational path with EduFind
+              Join thousands of students who have discovered their ideal educational path with EduAdvisor
             </p>
             <Link to="/auth">
               <Button size="xl" variant="gradient" className="btn-glow">

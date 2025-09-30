@@ -154,7 +154,7 @@ const Auth = () => {
                 <GraduationCap className="h-8 w-8 text-primary-foreground" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold">Welcome to EduFind</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome to EduAdvisor</CardTitle>
             <CardDescription>
               Sign in to access your personalized degree recommendations
             </CardDescription>
