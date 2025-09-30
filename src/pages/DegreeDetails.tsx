@@ -6,17 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  GraduationCap,
-  ArrowLeft,
-  Sparkles,
-  BookOpen,
-  TrendingUp,
-  CheckCircle2,
-  GitCompare,
-  Briefcase,
-  Target
-} from 'lucide-react';
+import { GraduationCap, ArrowLeft, Sparkles, BookOpen, TrendingUp, CircleCheck as CheckCircle2, GitCompare, Briefcase, Target } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface DegreeProgram {
