@@ -10,7 +10,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Save, User, BookOpen, Target, Plus, X, CheckCircle, Globe, Wallet } from 'lucide-react';
+import { Loader2, Save, User, BookOpen, Target, Plus, X, CheckCircle, Globe, Wallet, Edit2, Check } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -72,6 +72,8 @@ const Profile = () => {
   const [newInterest, setNewInterest] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [newGrade, setNewGrade] = useState('');
+  const [editingGradeId, setEditingGradeId] = useState<string | null>(null);
+  const [editingGradeValue, setEditingGradeValue] = useState('');
 
   // Calculate profile completion
   // Count filled socioeconomic fields
@@ -356,6 +358,45 @@ const fetchCountries = async () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleUpdateSubjectGrade = async (subjectId: string) => {
+    if (!academicData || !editingGradeValue.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('subject_grades')
+        .update({ grade: editingGradeValue.trim() })
+        .eq('academic_data_id', academicData.academic_data_id)
+        .eq('subject_id', subjectId);
+
+      if (error) throw error;
+
+      await fetchProfileData();
+      setEditingGradeId(null);
+      setEditingGradeValue('');
+      toast({
+        title: 'Success',
+        description: 'Grade updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating grade:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update grade',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const startEditingGrade = (subjectId: string, currentGrade: string) => {
+    setEditingGradeId(subjectId);
+    setEditingGradeValue(currentGrade);
+  };
+
+  const cancelEditingGrade = () => {
+    setEditingGradeId(null);
+    setEditingGradeValue('');
   };
 
   const handleSaveSocioeconomic = async () => {
@@ -826,13 +867,55 @@ const fetchCountries = async () => {
                           <span className="font-medium">{grade.subjects?.subject_name}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <Badge variant="secondary">{grade.grade}</Badge>
-                          <button
-                            onClick={() => handleRemoveSubjectGrade(grade.subject_id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                          {editingGradeId === grade.subject_id ? (
+                            <>
+                              <Input
+                                value={editingGradeValue}
+                                onChange={(e) => setEditingGradeValue(e.target.value)}
+                                className="w-24 h-8"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleUpdateSubjectGrade(grade.subject_id);
+                                  } else if (e.key === 'Escape') {
+                                    cancelEditingGrade();
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleUpdateSubjectGrade(grade.subject_id)}
+                                className="text-success hover:text-success/80"
+                                title="Save"
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={cancelEditingGrade}
+                                className="text-muted-foreground hover:text-foreground"
+                                title="Cancel"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <Badge variant="secondary">{grade.grade}</Badge>
+                              <button
+                                onClick={() => startEditingGrade(grade.subject_id, grade.grade || '')}
+                                className="text-muted-foreground hover:text-primary"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveSubjectGrade(grade.subject_id)}
+                                className="text-muted-foreground hover:text-destructive"
+                                title="Delete"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
