@@ -326,7 +326,7 @@ const StudentDashboard = () => {
                     <p className="text-muted-foreground max-w-md mx-auto">
                       Complete your profile to get personalized degree recommendations based on your academic background and interests.
                     </p>
-                    <Link to="/profile/create">
+                    <Link to={profileData?.academic_data ? "/profile" : "/profile/create"}>
                       <Button variant="gradient">
                         Complete Your Profile
                       </Button>
