@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Target, TrendingUp, Award, User, BookOpen, Sparkles, AlertCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 
 interface Recommendation {
   recommendation_id: string;
@@ -34,6 +35,7 @@ const StudentDashboard = () => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileCompletion, setProfileCompletion] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -46,9 +48,55 @@ const StudentDashboard = () => {
       // Fetch user profile and academic data
       const { data: academicData } = await supabase
         .from('academic_data')
-        .select('academic_data_id')
+        .select('academic_data_id, gpa, grade_system, school_type')
         .eq('user_id', user?.id)
         .maybeSingle();
+
+      // Fetch personal interests
+      const { data: interests } = await supabase
+        .from('personal_interests')
+        .select('interest')
+        .eq('user_id', user?.id);
+
+      // Fetch subject grades
+      let subjectGrades = [];
+      if (academicData?.academic_data_id) {
+        const { data: grades } = await supabase
+          .from('subject_grades')
+          .select('grade, subject_id')
+          .eq('academic_data_id', academicData.academic_data_id);
+        subjectGrades = grades || [];
+      }
+
+      // Fetch socioeconomic data
+      const { data: socioData } = await supabase
+        .from('socioeconomic_indicators')
+        .select('country_code, income_level, gender, school_type')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      // Calculate profile completion
+      let totalItems = 0;
+      totalItems += interests?.length || 0;
+      totalItems += subjectGrades.length;
+      
+      // Count filled socioeconomic fields
+      if (socioData) {
+        if (socioData.country_code) totalItems++;
+        if (socioData.income_level) totalItems++;
+        if (socioData.gender) totalItems++;
+        if (socioData.school_type) totalItems++;
+      }
+
+      // Count filled academic fields
+      if (academicData) {
+        if (academicData.gpa) totalItems++;
+        if (academicData.grade_system) totalItems++;
+        if (academicData.school_type) totalItems++;
+      }
+
+      const completionPercentage = Math.round((totalItems / 15) * 100);
+      setProfileCompletion(completionPercentage);
 
       if (academicData) {
         setProfileData({
@@ -134,58 +182,58 @@ const StudentDashboard = () => {
           )}
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-1 ${recommendations.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-4`}>
             <Card className="glass card-hover">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Recommendations</p>
-                    <p className="text-2xl font-bold">{recommendations.length}</p>
-                  </div>
-                  <Target className="h-8 w-8 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass card-hover">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Top Match Score</p>
-                    <p className="text-2xl font-bold">
-                      {recommendations[0]?.confidence_score || 0}%
-                    </p>
-                  </div>
-                  <Award className="h-8 w-8 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass card-hover">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Profile Status</p>
-                    <p className="text-2xl font-bold">
-                      {profileData?.academic_data ? 'Complete' : 'Incomplete'}
-                    </p>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Profile Completion</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <Progress value={profileCompletion} className="flex-1" />
+                      <span className="text-2xl font-bold">{profileCompletion}%</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      {profileCompletion === 100 ? (
+                        <Badge className="bg-success text-success-foreground">Complete</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{Math.round(profileCompletion * 15 / 100)}/15 items</span>
+                      )}
+                    </div>
                   </div>
                   <User className="h-8 w-8 text-primary" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="glass card-hover">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Market Trend</p>
-                    <p className="text-2xl font-bold">Rising</p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-success" />
-                </div>
-              </CardContent>
-            </Card>
+            {recommendations.length > 0 && (
+              <>
+                <Card className="glass card-hover">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Top Match Score</p>
+                        <p className="text-2xl font-bold">
+                          {recommendations[0]?.confidence_score || 0}%
+                        </p>
+                      </div>
+                      <Award className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="glass card-hover">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Market Trend</p>
+                        <p className="text-2xl font-bold">Rising</p>
+                      </div>
+                      <TrendingUp className="h-8 w-8 text-success" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
 
           {/* Top Recommendations */}
