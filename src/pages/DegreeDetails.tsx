@@ -15,7 +15,6 @@ interface DegreeProgram {
   program_type: string;
   description: string;
   minimum_gpa: number | null;
-  duration_years: number | null;
 }
 
 interface Industry {
@@ -26,8 +25,7 @@ interface SubjectRequirement {
   subjects: {
     subject_name: string;
   };
-  minimum_grade: number | null;
-  required: boolean;
+  requirement_detail: string | null;
 }
 
 const DegreeDetails = () => {
@@ -74,8 +72,7 @@ const DegreeDetails = () => {
             subjects (
               subject_name
             ),
-            minimum_grade,
-            required
+            requirement_detail
           `)
           .eq('program_id', programId);
 
@@ -180,11 +177,6 @@ const DegreeDetails = () => {
                           Min GPA: {program.minimum_gpa}
                         </Badge>
                       )}
-                      {program.duration_years && (
-                        <Badge variant="secondary">
-                          {program.duration_years} Year{program.duration_years > 1 ? 's' : ''}
-                        </Badge>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -221,15 +213,12 @@ const DegreeDetails = () => {
                     {requirements.map((req, index) => (
                       <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className={`h-4 w-4 ${req.required ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
                           <span className="font-medium">{req.subjects?.subject_name}</span>
-                          {req.required && (
-                            <Badge variant="outline" className="text-xs">Required</Badge>
-                          )}
                         </div>
-                        {req.minimum_grade && (
+                        {req.requirement_detail && (
                           <span className="text-sm text-muted-foreground">
-                            Min Grade: {req.minimum_grade}%
+                            {req.requirement_detail}
                           </span>
                         )}
                       </div>

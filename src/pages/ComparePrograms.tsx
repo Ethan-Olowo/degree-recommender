@@ -21,15 +21,13 @@ interface DegreeProgram {
   program_type: string;
   description: string;
   minimum_gpa: number | null;
-  duration_years: number | null;
 }
 
 interface ProgramWithDetails extends DegreeProgram {
   industries: string[];
   requirements: {
     subject_name: string;
-    minimum_grade: number | null;
-    required: boolean;
+    requirement_detail: string | null;
   }[];
 }
 
@@ -90,8 +88,7 @@ const ComparePrograms = () => {
           subjects (
             subject_name
           ),
-          minimum_grade,
-          required
+          requirement_detail
         `)
         .eq('program_id', id);
 
@@ -100,8 +97,7 @@ const ComparePrograms = () => {
         industries: industriesData?.map(item => item.industries?.industry_name).filter(Boolean) as string[] || [],
         requirements: requirementsData?.map(req => ({
           subject_name: req.subjects?.subject_name || '',
-          minimum_grade: req.minimum_grade,
-          required: req.required
+          requirement_detail: req.requirement_detail
         })) || []
       });
     }
@@ -131,8 +127,7 @@ const ComparePrograms = () => {
         subjects (
           subject_name
         ),
-        minimum_grade,
-        required
+        requirement_detail
       `)
       .eq('program_id', programId);
 
@@ -141,8 +136,7 @@ const ComparePrograms = () => {
       industries: industriesData?.map(item => item.industries?.industry_name).filter(Boolean) as string[] || [],
       requirements: requirementsData?.map(req => ({
         subject_name: req.subjects?.subject_name || '',
-        minimum_grade: req.minimum_grade,
-        required: req.required
+        requirement_detail: req.requirement_detail
       })) || []
     };
 
@@ -238,11 +232,6 @@ const ComparePrograms = () => {
                         GPA: {program.minimum_gpa}
                       </Badge>
                     )}
-                    {program.duration_years && (
-                      <Badge variant="secondary">
-                        {program.duration_years}yr
-                      </Badge>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -293,15 +282,11 @@ const ComparePrograms = () => {
                       <div className="space-y-2">
                         {program.requirements.slice(0, 3).map((req, idx) => (
                           <div key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                            {req.required ? (
-                              <CheckCircle2 className="h-3 w-3 text-primary mt-0.5" />
-                            ) : (
-                              <MinusCircle className="h-3 w-3 text-muted-foreground mt-0.5" />
-                            )}
+                            <CheckCircle2 className="h-3 w-3 text-primary mt-0.5" />
                             <div className="flex-1">
                               <span>{req.subject_name}</span>
-                              {req.minimum_grade && (
-                                <span className="text-xs ml-1">({req.minimum_grade}%)</span>
+                              {req.requirement_detail && (
+                                <span className="text-xs ml-1">({req.requirement_detail})</span>
                               )}
                             </div>
                           </div>
