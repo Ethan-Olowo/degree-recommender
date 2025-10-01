@@ -551,7 +551,7 @@ const fetchCountries = async () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="gpa">GPA</Label>
                       <Input
@@ -593,27 +593,6 @@ const fetchCountries = async () => {
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="schoolType">School Type</Label>
-                      <Select
-                        value={academicData?.school_type || ''}
-                        onValueChange={(value) => setAcademicData(prev => ({
-                          ...prev!,
-                          academic_data_id: prev?.academic_data_id || '',
-                          school_type: value,
-                        }))}
-                      >
-                        <SelectTrigger id="schoolType">
-                          <SelectValue placeholder="Select school type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="public">Public School</SelectItem>
-                          <SelectItem value="private">Private School</SelectItem>
-                          <SelectItem value="international">International School</SelectItem>
-                          <SelectItem value="homeschool">Homeschool</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   <Button
