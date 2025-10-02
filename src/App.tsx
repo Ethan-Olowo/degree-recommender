@@ -13,6 +13,7 @@ import ComparePrograms from "./pages/ComparePrograms";
 import ProfileCreate from "./pages/ProfileCreate";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
+import ManageDegrees from "./pages/ManageDegrees";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/profile/create" element={<ProfileCreate />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/degrees" element={<ManageDegrees />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
