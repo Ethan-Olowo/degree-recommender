@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,16 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, GraduationCap, CircleAlert as AlertCircle } from 'lucide-react';
-import { DegreeFormDialog } from '@/components/DegreeFormDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type DegreeProgram = Tables<'degree_programs'>;
 
 const ManageDegrees = () => {
+  const navigate = useNavigate();
   const [degrees, setDegrees] = useState<DegreeProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDegree, setEditingDegree] = useState<DegreeProgram | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [degreeToDelete, setDegreeToDelete] = useState<DegreeProgram | null>(null);
   const { toast } = useToast();
@@ -50,13 +49,11 @@ const ManageDegrees = () => {
   };
 
   const handleCreate = () => {
-    setEditingDegree(null);
-    setIsFormOpen(true);
+    navigate('/admin/degrees/edit/new');
   };
 
-  const handleEdit = (degree: DegreeProgram) => {
-    setEditingDegree(degree);
-    setIsFormOpen(true);
+  const handleEdit = (programId: string) => {
+    navigate(`/admin/degrees/edit/${programId}`);
   };
 
   const handleDelete = (degree: DegreeProgram) => {
@@ -94,11 +91,6 @@ const ManageDegrees = () => {
     }
   };
 
-  const handleFormSuccess = () => {
-    setIsFormOpen(false);
-    setEditingDegree(null);
-    fetchDegrees();
-  };
 
   return (
     <ProtectedRoute requireAdmin>
@@ -190,7 +182,7 @@ const ManageDegrees = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleEdit(degree)}
+                                onClick={() => handleEdit(degree.program_id)}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -212,13 +204,6 @@ const ManageDegrees = () => {
             </CardContent>
           </Card>
         </div>
-
-        <DegreeFormDialog
-          open={isFormOpen}
-          onOpenChange={setIsFormOpen}
-          degree={editingDegree}
-          onSuccess={handleFormSuccess}
-        />
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>

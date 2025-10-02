@@ -14,6 +14,7 @@ import ProfileCreate from "./pages/ProfileCreate";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 import ManageDegrees from "./pages/ManageDegrees";
+import EditDegree from "./pages/EditDegree";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/degrees" element={<ManageDegrees />} />
+            <Route path="/admin/degrees/edit/:programId" element={<EditDegree />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
