@@ -261,24 +261,25 @@ const EditDegree = () => {
   return (
     <ProtectedRoute requireAdmin>
       <Layout>
-        <div className="space-y-6 animate-fade-in max-w-4xl">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/degrees')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-4xl font-bold">
-                {programId === 'new' ? 'Create' : 'Edit'} <span className="gradient-text">Degree Program</span>
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                {programId === 'new' ? 'Add a new degree program' : 'Update degree program details'}
-              </p>
+        <div className="flex min-h-[80vh] items-center justify-center">
+          <div className="space-y-6 animate-fade-in max-w-4xl w-full">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/degrees')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-4xl font-bold">
+                  {programId === 'new' ? 'Create' : 'Edit'} <span className="gradient-text">Degree Program</span>
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  {programId === 'new' ? 'Add a new degree program' : 'Update degree program details'}
+                </p>
+              </div>
             </div>
-          </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Basic Information Card */}
               <Card className="glass">
                 <CardHeader>
@@ -499,6 +500,7 @@ const EditDegree = () => {
             </form>
           </Form>
         </div>
+      </div>
       </Layout>
     </ProtectedRoute>
   );

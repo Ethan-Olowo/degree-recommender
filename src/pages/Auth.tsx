@@ -45,14 +45,12 @@ const Auth = () => {
   });
 
   useEffect(() => {
-      if (user) {
-        if (isAdmin) {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      }
-    }, [user, isAdmin, navigate]);
+    if (user && isAdmin) {
+      navigate('/admin');
+    } else if (user && !isAdmin) {
+      navigate('/dashboard');
+    }
+  }, [user, isAdmin, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -154,7 +154,12 @@ const ManageDegrees = () => {
                     </TableHeader>
                     <TableBody>
                       {degrees.map((degree) => (
-                        <TableRow key={degree.program_id}>
+                        <TableRow
+                          key={degree.program_id}
+                          onClick={() => handleEdit(degree.program_id)}
+                          className="cursor-pointer hover:bg-muted/50 group"
+                          style={{ transition: 'background 0.2s' }}
+                        >
                           <TableCell className="font-medium">
                             {degree.program_name}
                           </TableCell>
@@ -178,7 +183,7 @@ const ManageDegrees = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
                               <Button
                                 variant="ghost"
                                 size="sm"
