@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { FloatingChat } from "@/components/FloatingChat";
 
 interface Recommendation {
   recommendation_id: string;
@@ -444,6 +445,7 @@ const StudentDashboard = () => {
             </Link>
           </div>
         </div>
+        <FloatingChat recommendations={recommendations} />
       </Layout>
     </ProtectedRoute>
   );
