@@ -9,8 +9,18 @@ class User(Base):
     user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     full_name = Column(String(100), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
-    auth_id = Column(UUID(as_uuid=True), nullable=False)
-    profiles = relationship("StudentProfile", back_populates="user")
+    personal_interests = relationship("PersonalInterest", back_populates="user")
+    socioeconomic = relationship("SocioeconomicIndicator", back_populates="user", uselist=False)
+    recommendations = relationship("Recommendation", back_populates="user")
+    academic_data = relationship("AcademicData", backref="user", uselist=False)
+
+class CategoryConfidence(Base):
+    __tablename__ = "category_confidence"
+    prediction_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at = Column(TIMESTAMP, nullable=False)
+    predicted_category = Column(Text, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    prediction_confidence = Column(Float, nullable=False)
 
 class Country(Base):
     __tablename__ = "countries"
@@ -28,6 +38,7 @@ class AcademicData(Base):
     gpa = Column(Float)
     grade_system = Column(String(50))
     school_type = Column(String(50))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     subject_grades = relationship("SubjectGrade", back_populates="academic_data")
 
 class SubjectGrade(Base):
@@ -38,31 +49,24 @@ class SubjectGrade(Base):
     academic_data = relationship("AcademicData", back_populates="subject_grades")
     subject = relationship("Subject")
 
-class StudentProfile(Base):
-    __tablename__ = "student_profiles"
-    profile_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    academic_data_id = Column(UUID(as_uuid=True), ForeignKey("academic_data.academic_data_id", ondelete="SET NULL"))
-    user = relationship("User", back_populates="profiles")
-    academic_data = relationship("AcademicData")
-    personal_interests = relationship("PersonalInterest", back_populates="profile")
-    socioeconomic = relationship("SocioeconomicIndicator", back_populates="profile", uselist=False)
-    recommendations = relationship("Recommendation", back_populates="profile")
 
 class PersonalInterest(Base):
     __tablename__ = "personal_interests"
-    profile_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.profile_id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     interest = Column(String(100), primary_key=True)
-    profile = relationship("StudentProfile", back_populates="personal_interests")
+    user = relationship("User", back_populates="personal_interests")
 
 class SocioeconomicIndicator(Base):
     __tablename__ = "socioeconomic_indicators"
-    profile_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.profile_id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     country_code = Column(String(10), ForeignKey("countries.country_code"))
     income_level = Column(String(20))
     gender = Column(String(20))
     school_type = Column(String(50))
-    profile = relationship("StudentProfile", back_populates="socioeconomic")
+    father_education = Column(Text, default="Does not know")
+    mother_education = Column(Text, default="Does not know")
+    funding_method = Column(String(50), default="self")
+    user = relationship("User", back_populates="socioeconomic")
     country = relationship("Country")
 
 class Industry(Base):
@@ -77,6 +81,7 @@ class DegreeProgram(Base):
     program_type = Column(String(50))
     description = Column(Text)
     minimum_gpa = Column(Float)
+    category = Column(String(50))
     subject_requirements = relationship("SubjectRequirement", back_populates="degree_program")
     degree_industries = relationship("DegreeIndustry", back_populates="degree_program")
     recommendations = relationship("Recommendation", back_populates="degree_program")
@@ -118,13 +123,14 @@ class MarketIndicatorValue(Base):
 class Recommendation(Base):
     __tablename__ = "recommendations"
     recommendation_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    profile_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.profile_id", ondelete="CASCADE"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     program_id = Column(UUID(as_uuid=True), ForeignKey("degree_programs.program_id", ondelete="CASCADE"))
     confidence_score = Column(Float)
-    algorithm_source = Column(String(100))
     explanation = Column(Text)
     market_score = Column(Float)
-    profile = relationship("StudentProfile", back_populates="recommendations")
+    created_at = Column(TIMESTAMP, nullable=False)
+    liked = Column(Boolean, default=False, nullable=False)
+    user = relationship("User", back_populates="recommendations")
     degree_program = relationship("DegreeProgram", back_populates="recommendations")
 
 class Report(Base):

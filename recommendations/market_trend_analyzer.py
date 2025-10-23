@@ -9,7 +9,7 @@ class MarketTrendAnalyzer:
         Analyzes market trends related to a specific degree program.
         """
         # Placeholder for actual market trend analysis logic
-        print(f"Analyzing market trends for degree program: {degree_program.programName}")
+        # print(f"Analyzing market trends for degree program: {degree_program.program_name}")
         return {
             "job_market_demand": 0.8,
             "average_salary": 70000,
@@ -25,5 +25,5 @@ class MarketTrendAnalyzer:
             (trends["average_salary"] / 100000) * 0.3 +
             trends["industry_growth"] * 0.2
         )
-        print(f"Calculated market score for {degree_program.programName}: {market_score}")
+        # print(f"Calculated market score for {degree_program.program_name}: {market_score}")
         return market_score

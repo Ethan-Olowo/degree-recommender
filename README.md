@@ -17,7 +17,7 @@ This is the backend for a Degree Recommendation System, built with FastAPI, SQLA
 - **SQLAlchemy** for ORM/database access
 - **Pydantic** for data validation
 - **OpenAI API** for explanation generation
-- **SQLite** as the default database
+- **Supabase** as the default database
 
 ## Setup
 
