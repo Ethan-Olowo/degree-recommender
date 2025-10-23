@@ -50,18 +50,17 @@ class PeerClustering:
             # If scaler returns DataFrame, select columns by name
             df_scaled = df_scaled[self.selected_features]
 
-        # Predict using XGBoost (scikit-learn API expects array/DataFrame, not DMatrix)
-        predictions_proba = self.xgb_model.predict(df_scaled)
-        top_k_idx = np.argsort(predictions_proba)[-5:][::-1]
-        label_classes = self.label_encoder.classes_ if hasattr(self.label_encoder, "classes_") else self.label_encoder
+        predictions_proba = self.xgb_model.predict_proba(df_scaled)
+        top_k_indices = np.argsort(predictions_proba, axis=1)[:, -5:][0][::-1]
+
+        top_k_probabilities = predictions_proba[0, top_k_indices]
+        top_k_degree_categories = self.label_encoder.inverse_transform(top_k_indices)
         categories = []
-        for idx in top_k_idx:
-            cat_name = label_classes[idx] if idx < len(label_classes) else str(idx)
-            score = float(predictions_proba[idx])
+        
+        for category, probability in zip(top_k_degree_categories, top_k_probabilities):
             item = {
-                'id': int(idx),
-                'score': score,
-                'category': cat_name
+                'score': float(probability),
+                'category': category
             }
             print(item)
             categories.append(item)
