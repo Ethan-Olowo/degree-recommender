@@ -65,11 +65,11 @@ class RecommendationEngine:
 
         recommendations: list[Recommendation] = []
         filtered_programs = self.filter_programs([cat['category'] for cat in self.categories])
-        recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs))
+        recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs, db=db))
 
         if len(recommendations) < 10:
             recommendations = []
-            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=self.degree_programs))
+            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=self.degree_programs, db=db))
 
         for recommendation in recommendations:
             recommendation.market_score = self.market_trend_analyzer.calculate_market_score(recommendation.degree_program)

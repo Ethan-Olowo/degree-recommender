@@ -31,6 +31,7 @@ class Subject(Base):
     __tablename__ = "subjects"
     subject_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     subject_name = Column(String(100), nullable=False)
+    embedding = Column(String(3000))  # 384-dim embedding as comma-separated string
 
 class AcademicData(Base):
     __tablename__ = "academic_data"
@@ -54,6 +55,7 @@ class PersonalInterest(Base):
     __tablename__ = "personal_interests"
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     interest = Column(String(100), primary_key=True)
+    embedding = Column(String(3000))  # 384-dim embedding as comma-separated string
     user = relationship("User", back_populates="personal_interests")
 
 class SocioeconomicIndicator(Base):
@@ -73,6 +75,7 @@ class Industry(Base):
     __tablename__ = "industries"
     industry_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     industry_name = Column(String(100), nullable=False)
+    embedding = Column(String(3000))  # 384-dim embedding as comma-separated string
 
 class DegreeProgram(Base):
     __tablename__ = "degree_programs"
@@ -80,6 +83,7 @@ class DegreeProgram(Base):
     program_name = Column(String(100), nullable=False)
     program_type = Column(String(50))
     description = Column(Text)
+    description_embedding = Column(String(3000))  # 384-dim embedding as comma-separated string
     minimum_gpa = Column(Float)
     category = Column(String(50))
     subject_requirements = relationship("SubjectRequirement", back_populates="degree_program")

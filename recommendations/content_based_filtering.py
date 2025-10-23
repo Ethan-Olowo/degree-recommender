@@ -5,8 +5,8 @@ from database.schemas import AcademicData, SubjectGrade, Subject, DegreeIndustry
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import MultiLabelBinarizer
-
+from sentence_transformers import SentenceTransformer
+import database.crud as crud
 
 
 class ContentBasedFiltering:
@@ -28,72 +28,96 @@ class ContentBasedFiltering:
         """
         self.all_subjects = [s.subject_name for s in subjects]
         self.all_industries = [i.industry_name for i in industries]
-        self.interest_encoder = MultiLabelBinarizer(classes=self.all_industries)
-        self.interest_encoder.fit([self.all_industries])
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        # No precomputation of industry embeddings
+        self.industry_id_map = {industry.industry_name: industry.industry_id for industry in industries}
 
-    def _create_user_vector(self, user: User) -> np.ndarray:
+    def _create_user_vectors(self, user: User) -> tuple[np.ndarray, np.ndarray]:
         """
-        Creates a numerical vector representation of a user's profile.
-        Args:
-            user (User): The user object.
+        Creates separate vectors for subject grades and interests.
         Returns:
-            np.ndarray: A 1D NumPy array representing the user's feature vector.
+            tuple: (subject_vector, interest_vector)
         """
-        # 1. Create the subject vector based on grades
+        # Subject grades vector
         subject_grades = {}
         if user.academic_data.subject_grades:
             for sg in user.academic_data.subject_grades:
                 if sg.subject and hasattr(sg.subject, "subject_name"):
                     subject_grades[sg.subject.subject_name] = normalize_grade(sg.grade) / 100
-        subject_vector = [subject_grades.get(subject, 0.0) for subject in self.all_subjects]
+        subject_vector = np.array([subject_grades.get(subject, 0.0) for subject in self.all_subjects])
 
-        # 2. Create the interest vector from personal interests
+        # Interests embedding vector (average of all interest embeddings)
         interests = []
+        interest_embeddings = []
         if user.personal_interests:
-            for interest in user.personal_interests:
-                if hasattr(interest, "interest"):
-                    interests.append(interest.interest)
-        interest_vector = self.interest_encoder.transform([interests])[0]
+            for interest_obj in user.personal_interests:
+                if hasattr(interest_obj, "interest"):
+                    interests.append(interest_obj.interest)
+                    if getattr(interest_obj, 'embedding', None):
+                        emb_str = interest_obj.embedding.strip('[]')
+                        emb = np.array([float(x) for x in emb_str.split(',')])
+                    else:
+                        emb = self.embedding_model.encode([interest_obj.interest])[0]
+                        # Save embedding to DB
+                        crud.save_embedding(self.db, 'personal_interests', str(user.user_id), ','.join(map(str, emb)), secondary_id=interest_obj.interest)
+                    interest_embeddings.append(emb)
+        if interest_embeddings:
+            interest_vector = np.mean(interest_embeddings, axis=0)
+        else:
+            # Use default embedding size (MiniLM-L6-v2: 384)
+            interest_vector = np.zeros(384)
+        return subject_vector, interest_vector
 
-        # 3. Combine vectors into a single 1D array
-        return np.concatenate([subject_vector, interest_vector])
-
-    def _create_degree_vectors(self, programs: list[DegreeProgram]) -> tuple[pd.DataFrame, dict]:
+    def _create_degree_vectors(self, programs: list[DegreeProgram]) -> tuple[pd.DataFrame, np.ndarray, dict]:
         """
-        Creates a matrix of numerical vectors for a list of degree programs.
-        Args:
-            programs (list[DegreeProgram]): The list of degree programs to vectorize.
+        Creates separate matrices for subject requirements and industries for degree programs.
         Returns:
-            tuple: A pandas DataFrame containing the vectorized programs and a
-                   dictionary mapping program ID to its index.
+            tuple: (subject_matrix, industry_embedding_matrix, program_id_map)
         """
-        program_data = []
+        subject_data = []
+        industry_embeddings = []
         program_id_map = {}
         for i, program in enumerate(programs):
-            # 1. Create the subject requirement vector
+            # Subject requirement vector
             requirements = {}
             if program.subject_requirements:
                 for req in program.subject_requirements:
                     if req.subject and hasattr(req.subject, "subject_name"):
                         requirements[req.subject.subject_name] = 1.0 if req.requirement_detail == "Required" else 0.7
             subject_vector = [requirements.get(subject, 0.0) for subject in self.all_subjects]
+            subject_data.append(subject_vector)
 
-            # 2. Create the industry vector for the degree
-            industries = []
+            # Industry embedding vector (average of all industry embeddings for the program)
+            inds_embeddings = []
             if program.degree_industries:
-                for ind in program.degree_industries:
-                    industries.append(ind)
-            industry_vector = self.interest_encoder.transform([industries])[0]
+                for degree_ind_obj in program.degree_industries:
+                    # degree_ind_obj is DegreeIndustry, get industry object
+                    industry_obj = getattr(degree_ind_obj, 'industry', None)
+                    if industry_obj:
+                        if getattr(industry_obj, 'embedding', None):
+                            emb_str = industry_obj.embedding.strip('[]')
+                            emb = np.array([float(x) for x in emb_str.split(',')])
+                        else:
+                            emb = self.embedding_model.encode([industry_obj.industry_name])[0]
+                            # Save embedding to DB
+                            crud.save_embedding(self.db, 'industries', str(industry_obj.industry_id), ','.join(map(str, emb)))
+                        inds_embeddings.append(emb)
+            if inds_embeddings:
+                industry_embedding = np.mean(inds_embeddings, axis=0)
+            else:
+                industry_embedding = np.zeros(384)
+            industry_embeddings.append(industry_embedding)
 
-            # 3. Combine vectors
-            combined_vector = np.concatenate([subject_vector, industry_vector])
-            program_data.append(combined_vector)
             program_id_map[getattr(program, "program_id", None)] = i
 
-        df = pd.DataFrame(program_data, columns=self.all_subjects + self.all_industries)
-        return df, program_id_map
+        subject_df = pd.DataFrame(subject_data, columns=self.all_subjects)
+        if industry_embeddings:
+            industry_embedding_matrix = np.vstack(industry_embeddings)
+        else:
+            industry_embedding_matrix = np.zeros((0, 384))
+        return subject_df, industry_embedding_matrix, program_id_map
 
-    def recommend(self, user, degree_programs: list[DegreeProgram], top_n: int = 10) -> list[Recommendation]:
+    def recommend(self, user, degree_programs: list[DegreeProgram], top_n: int = 10, db=None) -> list[Recommendation]:
         """
         Generates personalized degree recommendations for a given user.
         Args:
@@ -110,32 +134,39 @@ class ContentBasedFiltering:
             user_gpa = user.academic_data.gpa or 0.0
         eligible_programs = [program for program in degree_programs if user_gpa >= getattr(program, "minimum_gpa", 0.0)]
 
-        # 2. Create vectors for the user and the eligible programs
-        user_vector = self._create_user_vector(user)
-        degree_matrix, program_id_map = self._create_degree_vectors(eligible_programs)
+        # 2. Set db for embedding saving
+        self.db = db
+        # 3. Create separate vectors for user and programs
+        user_subject_vec, user_interest_vec = self._create_user_vectors(user)
+        subject_matrix, industry_embedding_matrix, program_id_map = self._create_degree_vectors(eligible_programs)
 
-        if degree_matrix.empty:
+        if subject_matrix.empty or industry_embedding_matrix.shape[0] == 0:
             print("Could not create feature vectors for eligible programs.")
             return []
 
-        # 3. Calculate cosine similarity
-        user_vector_reshaped = user_vector.reshape(1, -1)
-        cosine_sim = cosine_similarity(user_vector_reshaped, degree_matrix.values)
-        sim_scores = list(enumerate(cosine_sim[0]))
+        # 3. Calculate subject similarity (grades vs requirements)
+        user_subject_vec_reshaped = user_subject_vec.reshape(1, -1)
+        subject_sim = cosine_similarity(user_subject_vec_reshaped, subject_matrix.values)[0]
 
-        # 4. Sort programs based on similarity scores
+        # 4. Calculate semantic similarity (interests vs industries) using embeddings
+        user_interest_vec_reshaped = user_interest_vec.reshape(1, -1)
+        semantic_sim = cosine_similarity(user_interest_vec_reshaped, industry_embedding_matrix)[0]
+
+        # 5. Combine similarities with weights
+        combined_sim = 0.3 * subject_sim + 0.7 * semantic_sim
+        sim_scores = list(enumerate(combined_sim))
+
+        # 6. Sort programs based on combined similarity scores
         sorted_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
         top_program_indices = [i[0] for i in sorted_scores[:top_n]]
 
-        # 5. Format and return the results
-        from models import Recommendation
+        # 7. Format and return the results
         recommendations = []
         idx_to_program_id = {v: k for k, v in program_id_map.items()}
         for index in top_program_indices:
             program_id = idx_to_program_id[index]
             program = next((p for p in eligible_programs if getattr(p, "program_id", None) == program_id), None)
             if program:
-                # Create Recommendation object
                 from datetime import datetime
                 rec = Recommendation(
                     recommendation_id=uuid.uuid4(),
@@ -147,7 +178,6 @@ class ContentBasedFiltering:
                     created_at=datetime.now(),
                     liked=False
                 )
-                # Attach degree_program for downstream usage (not in schema, but used by engine)
                 rec.degree_program = program
                 recommendations.append(rec)
         return recommendations

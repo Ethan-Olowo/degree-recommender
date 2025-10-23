@@ -3,15 +3,6 @@ from typing import List, Optional
 import uuid
 from datetime import datetime
 
-
-# Degree Program
-class DegreeProgramBase(BaseModel):
-    program_name: str
-    program_type: Optional[str] = "Undergraduate"
-    description: Optional[str] = None
-    minimum_gpa: Optional[float] = None
-    category: Optional[str] = None
-
 # Subject
 class Subject(BaseModel):
     subject_id: uuid.UUID
@@ -23,6 +14,16 @@ class SubjectRequirement(BaseModel):
     subject_id: uuid.UUID
     requirement_detail: Optional[str] = None
     subject: Optional[Subject] = None
+
+# Degree Program
+class DegreeProgramBase(BaseModel):
+    program_name: str
+    program_type: Optional[str] = "Undergraduate"
+    description: Optional[str] = None
+    minimum_gpa: Optional[float] = None
+    category: Optional[str] = None
+    description_embedding: Optional[List[float]] = None
+
 
 class DegreeProgram(DegreeProgramBase):
     program_id: uuid.UUID

@@ -100,3 +100,45 @@ def get_subject_requirements_by_program(db: Session, program_id: str):
 def get_industries(db: Session, skip: int = 0, limit: int = 100):
     return db.query(schema.Industry).offset(skip).limit(limit).all()
 
+# Generic Embedding CRUD
+def save_embedding(db: Session, table: str, row_id: str, embedding: str, secondary_id: str = None):
+    """
+    Save an embedding value to the specified table and row.
+    table: one of 'personal_interests', 'subjects', 'industries', 'degree_programs'
+    row_id: primary key (UUID or composite)
+    embedding: embedding string (comma-separated)
+    secondary_id: for tables with composite PK (e.g., interest for personal_interests)
+    """
+    model_map = {
+        'personal_interests': schema.PersonalInterest,
+        'subjects': schema.Subject,
+        'industries': schema.Industry,
+        'degree_programs': schema.DegreeProgram
+    }
+    pk_map = {
+        'personal_interests': ['user_id', 'interest'],
+        'subjects': ['subject_id'],
+        'industries': ['industry_id'],
+        'degree_programs': ['program_id']
+    }
+    model = model_map.get(table)
+    if not model:
+        raise ValueError(f"Table '{table}' does not support embeddings.")
+    pk_fields = pk_map[table]
+    query = db.query(model)
+    if table == 'personal_interests' and secondary_id is not None:
+        instance = query.filter(getattr(model, pk_fields[0]) == row_id, getattr(model, pk_fields[1]) == secondary_id).first()
+    else:
+        instance = query.filter(getattr(model, pk_fields[0]) == row_id).first()
+    if not instance:
+        raise ValueError(f"Row not found in '{table}' for id '{row_id}'.")
+    # Ensure embedding is wrapped in square brackets for PostgreSQL vector type
+    if not embedding.startswith('['):
+        embedding = f'[{embedding}]'
+    if table == 'degree_programs':
+        instance.description_embedding = embedding
+    else:
+        instance.embedding = embedding
+    db.commit()
+    db.refresh(instance)
+    return instance
