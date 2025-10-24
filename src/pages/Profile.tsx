@@ -249,7 +249,7 @@ const fetchCountries = async () => {
   };
 
   const handleAddInterest = async () => {
-    if (!newInterest.trim() || totalItems >= 15) return;
+    if (!newInterest.trim()) return;
 
     try {
       const { error } = await supabase
@@ -303,7 +303,7 @@ const fetchCountries = async () => {
   };
 
   const handleAddSubjectGrade = async () => {
-    if (!selectedSubject || !newGrade.trim() || totalItems >= 15 || !academicData) return;
+    if (!selectedSubject || !newGrade.trim() || !academicData) return;
 
     try {
       const { error } = await supabase
@@ -482,45 +482,47 @@ const fetchCountries = async () => {
           </div>
 
           {/* Profile Completion Status */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Profile Completion</span>
-                {isProfileComplete && (
-                  <Badge className="bg-success text-success-foreground">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Complete
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Add {15 - totalItems} more {totalItems === 14 ? 'item' : 'items'} (interests, grades, or socioeconomic data) to complete your profile
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{totalItems}/15 items</span>
+          {completionPercentage < 100 && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Profile Completion</span>
+                  {isProfileComplete && (
+                    <Badge className="bg-success text-success-foreground">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Complete
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Add {15 - totalItems} more {totalItems === 14 ? 'item' : 'items'} (interests, grades, or socioeconomic data) to complete your profile
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progress</span>
+                    <span>{totalItems}/15 items</span>
+                  </div>
+                  <Progress value={completionPercentage} className="h-3" />
                 </div>
-                <Progress value={completionPercentage} className="h-3" />
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span>{interests.length} Interests</span>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    <span>{interests.length} Interests</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    <span>{subjectGrades.length} Grades</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <span>{socioeconomicFilledCount} Socioeconomic</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  <span>{subjectGrades.length} Grades</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-primary" />
-                  <span>{socioeconomicFilledCount} Socioeconomic</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Profile Tabs */}
           <Tabs defaultValue="basic" className="space-y-6">
@@ -737,23 +739,21 @@ const fetchCountries = async () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                {totalItems < 15 && (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter an interest (e.g., Technology, Arts, Science)"
-                      value={newInterest}
-                      onChange={(e) => setNewInterest(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddInterest()}
-                    />
-                    <Button
-                      onClick={handleAddInterest}
-                      disabled={!newInterest.trim() || totalItems >= 15}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter an interest (e.g., Technology, Arts, Science)"
+                    value={newInterest}
+                    onChange={(e) => setNewInterest(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddInterest()}
+                  />
+                  <Button
+                    onClick={handleAddInterest}
+                    disabled={!newInterest.trim()}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </Button>
+                </div>
 
                   <div className="flex flex-wrap gap-2">
                     {interests.map((interest) => (
@@ -800,7 +800,7 @@ const fetchCountries = async () => {
                     </div>
                   )}
 
-                  {academicData && totalItems < 15 && (
+                  {academicData && (
                     <div className="flex gap-2">
                       <Select
                         value={selectedSubject}
@@ -827,7 +827,7 @@ const fetchCountries = async () => {
                       />
                       <Button
                         onClick={handleAddSubjectGrade}
-                        disabled={!selectedSubject || !newGrade.trim() || totalItems >= 15}
+                        disabled={!selectedSubject || !newGrade.trim()}
                       >
                         <Plus className="h-4 w-4" />
                         Add

@@ -52,6 +52,7 @@ const StudentDashboard = () => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileCompletion, setProfileCompletion] = useState(0);
+  const [studentName, setStudentName] = useState<string>("");
 
   useEffect(() => {
     if (user) {
@@ -61,6 +62,14 @@ const StudentDashboard = () => {
 
   const fetchProfileAndRecommendations = async () => {
     try {
+      // Fetch user name from users table
+      const { data: userData } = await supabase
+        .from("users")
+        .select("full_name")
+        .eq("user_id", user?.id)
+        .single();
+      setStudentName(userData?.full_name || "Student");
+
       // Fetch user profile and academic data
       const { data: academicData } = await supabase
         .from("academic_data")
@@ -157,8 +166,9 @@ const StudentDashboard = () => {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-success";
-    if (score >= 60) return "text-warning";
+    const percent = score * 100;
+    if (percent >= 80) return "text-success";
+    if (percent >= 60) return "text-warning";
     return "text-muted-foreground";
   };
 
@@ -169,9 +179,9 @@ const StudentDashboard = () => {
           {/* Welcome Section */}
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold">
-              Welcome back,{" "}
+              Welcome back,{' '}
               <span className="gradient-text">
-                {user?.user_metadata?.full_name || "Student"}
+                {studentName}
               </span>
               !
             </h1>
@@ -205,80 +215,76 @@ const StudentDashboard = () => {
           )}
 
           {/* Quick Stats */}
-          <div
-            className={`grid grid-cols-1 ${
-              recommendations.length > 0 ? "md:grid-cols-3" : "md:grid-cols-1"
-            } gap-4`}
-          >
-            <Link to="/profile">
-              <Card className="glass card-hover">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">
-                        Profile Completion
-                      </p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <Progress
-                          value={profileCompletion}
-                          className="flex-1"
-                        />
-                        <span className="text-2xl font-bold">
-                          {profileCompletion}%
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2">
-                        {profileCompletion === 100 ? (
-                          <Badge className="bg-success text-success-foreground">
-                            Complete
-                          </Badge>
-                        ) : (
+          {profileCompletion < 100 && (
+            <div
+              className={`grid grid-cols-1 ${
+                recommendations.length > 0 ? "md:grid-cols-3" : "md:grid-cols-1"
+              } gap-4`}
+            >
+              <Link to="/profile">
+                <Card className="glass card-hover">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground">
+                          Profile Completion
+                        </p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <Progress
+                            value={profileCompletion}
+                            className="flex-1"
+                          />
+                          <span className="text-2xl font-bold">
+                            {profileCompletion}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
                           <span className="text-xs text-muted-foreground">
                             {Math.round((profileCompletion * 15) / 100)}/15
                             items
                           </span>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                    <User className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-            {recommendations.length > 0 && (
-              <>
-                <Card className="glass card-hover">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Top Match Score
-                        </p>
-                        <p className="text-2xl font-bold">
-                          {recommendations[0]?.confidence_score || 0}%
-                        </p>
-                      </div>
-                      <Award className="h-8 w-8 text-primary" />
+                      <User className="h-8 w-8 text-primary" />
                     </div>
                   </CardContent>
                 </Card>
+              </Link>
+              {recommendations.length > 0 && (
+                <>
+                  <Card className="glass card-hover">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Top Match Score
+                          </p>
+                          <p className="text-2xl font-bold">
+                            {Math.round((recommendations[0]?.confidence_score || 0) * 100)}%
+                          </p>
+                        </div>
+                        <Award className="h-8 w-8 text-primary" />
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                <Card className="glass card-hover">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Market Trend
-                        </p>
-                        <p className="text-2xl font-bold">Rising</p>
+                  <Card className="glass card-hover">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Market Trend
+                          </p>
+                          <p className="text-2xl font-bold">Rising</p>
+                        </div>
+                        <TrendingUp className="h-8 w-8 text-success" />
                       </div>
-                      <TrendingUp className="h-8 w-8 text-success" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Top Recommendations */}
           <div className="space-y-6">
@@ -307,69 +313,142 @@ const StudentDashboard = () => {
                 ))}
               </div>
             ) : recommendations.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {recommendations.map((rec, index) => (
-                  <Card
-                    key={rec.recommendation_id}
-                    className="glass card-hover"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg">
-                            {rec.degree_programs?.program_name}
-                          </CardTitle>
-                          <CardDescription>
-                            {rec.degree_programs?.program_type}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Sparkles className="h-4 w-4 text-primary" />
-                          <span
-                            className={`text-sm font-bold ${getScoreColor(
-                              rec.confidence_score
-                            )}`}
-                          >
-                            {rec.confidence_score}%
-                          </span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground line-clamp-3">
-                        {rec.degree_programs?.description}
-                      </p>
+              <>
+                {/* Top Recommendation Full Width */}
+                <div className="mb-6">
+                  {(() => {
+                    const rec = recommendations[0];
+                    if (!rec) return null;
+                    const confidencePercent = Math.round((rec.confidence_score || 0) * 100);
+                    const marketPercent = Math.round((rec.market_score || 0) * 100);
+                    return (
+                      <Card
+                        key={rec.recommendation_id}
+                        className="glass card-hover"
+                        style={{ animationDelay: `0s` }}
+                      >
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <CardTitle className="text-lg">
+                                {rec.degree_programs?.program_name}
+                              </CardTitle>
+                              <CardDescription>
+                                {rec.degree_programs?.program_type}
+                              </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Sparkles className="h-4 w-4 text-primary" />
+                              <span
+                                className={`text-sm font-bold ${getScoreColor(rec.confidence_score)}`}
+                              >
+                                {confidencePercent}%
+                              </span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <p className="text-sm text-muted-foreground line-clamp-3">
+                            {rec.degree_programs?.description}
+                          </p>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Match Score</span>
-                          <span>{rec.confidence_score}%</span>
-                        </div>
-                        <Progress
-                          value={rec.confidence_score}
-                          className="h-2"
-                        />
-                      </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Match Score</span>
+                              <span>{confidencePercent}%</span>
+                            </div>
+                            <Progress
+                              value={confidencePercent}
+                              className="h-2"
+                            />
+                          </div>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Market Score</span>
-                          <span>{rec.market_score}%</span>
-                        </div>
-                        <Progress value={rec.market_score} className="h-2" />
-                      </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Market Score</span>
+                              <span>{marketPercent}%</span>
+                            </div>
+                            <Progress value={marketPercent} className="h-2" />
+                          </div>
 
-                      <Link to={`/recommendation/${rec.recommendation_id}`}>
-                        <Button className="w-full" variant="outline">
-                          View Details
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                          <Link to={`/recommendation/${rec.recommendation_id}`}>
+                            <Button className="w-full" variant="outline">
+                              View Details
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
+                </div>
+                {/* Next 4 Recommendations in 2x2 Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {recommendations.slice(1, 5).map((rec, index) => {
+                    const confidencePercent = Math.round((rec.confidence_score || 0) * 100);
+                    const marketPercent = Math.round((rec.market_score || 0) * 100);
+                    return (
+                      <Card
+                        key={rec.recommendation_id}
+                        className="glass card-hover"
+                        style={{ animationDelay: `${(index + 1) * 0.1}s` }}
+                      >
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <CardTitle className="text-lg">
+                                {rec.degree_programs?.program_name}
+                              </CardTitle>
+                              <CardDescription>
+                                {rec.degree_programs?.program_type}
+                              </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Sparkles className="h-4 w-4 text-primary" />
+                              <span
+                                className={`text-sm font-bold ${getScoreColor(rec.confidence_score)}`}
+                              >
+                                {confidencePercent}%
+                              </span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <p className="text-sm text-muted-foreground line-clamp-3">
+                            {rec.degree_programs?.description}
+                          </p>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Match Score</span>
+                              <span>{confidencePercent}%</span>
+                            </div>
+                            <Progress
+                              value={confidencePercent}
+                              className="h-2"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Market Score</span>
+                              <span>{marketPercent}%</span>
+                            </div>
+                            <Progress value={marketPercent} className="h-2" />
+                          </div>
+
+                          <Link to={`/recommendation/${rec.recommendation_id}`}>
+                            <Button className="w-full" variant="outline">
+                              View Details
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
             ) : (
               <Card className="glass">
                 <CardContent className="p-12 text-center">
