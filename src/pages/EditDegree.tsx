@@ -21,9 +21,24 @@ type DegreeProgram = Tables<'degree_programs'>;
 type Industry = Tables<'industries'>;
 type Subject = Tables<'subjects'>;
 
+
+const CATEGORY_OPTIONS = [
+  "AGRICULTURE & ENVIRONMENTAL SCIENCES",
+  "ARTS & DESIGN",
+  "BUSINESS & MANAGEMENT",
+  "CORE ENGINEERING",
+  "ELECTRICAL & ELECTRONICS ENGINEERING",
+  "HEALTH & CLINICAL SCIENCES",
+  "NATURAL & BASIC SCIENCES",
+  "OTHER / SPECIALIZED PROGRAMS",
+  "SOCIAL SCIENCES & HUMANITIES",
+  "SPECIALIZED ENGINEERING",
+];
+
 const formSchema = z.object({
   program_name: z.string().min(1, 'Program name is required'),
   program_type: z.string().optional(),
+  category: z.string().min(1, 'Category is required'),
   minimum_gpa: z.coerce
     .number()
     .min(0, 'GPA must be at least 0')
@@ -59,6 +74,7 @@ const EditDegree = () => {
     defaultValues: {
       program_name: '',
       program_type: '',
+      category: '',
       minimum_gpa: null,
       description: '',
     },
@@ -111,6 +127,7 @@ const EditDegree = () => {
       form.reset({
         program_name: degreeRes.data.program_name,
         program_type: degreeRes.data.program_type || '',
+        category: degreeRes.data.category || '',
         minimum_gpa: degreeRes.data.minimum_gpa,
         description: degreeRes.data.description || '',
       });
@@ -145,6 +162,7 @@ const EditDegree = () => {
         const insertData: TablesInsert<'degree_programs'> = {
           program_name: data.program_name,
           program_type: data.program_type || null,
+          category: data.category,
           minimum_gpa: data.minimum_gpa,
           description: data.description || null,
         };
@@ -167,6 +185,7 @@ const EditDegree = () => {
         const updateData: Partial<DegreeProgram> = {
           program_name: data.program_name,
           program_type: data.program_type || null,
+          category: data.category,
           minimum_gpa: data.minimum_gpa,
           description: data.description || null,
         };
@@ -318,6 +337,34 @@ const EditDegree = () => {
                           />
                         </FormControl>
                         <FormDescription>The level or type of degree</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CATEGORY_OPTIONS.map(option => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormDescription>
+                          The main category for this degree program
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

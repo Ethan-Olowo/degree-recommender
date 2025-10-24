@@ -98,6 +98,7 @@ export type Database = {
           program_id: string
           program_name: string
           program_type: string | null
+          category: string
         }
         Insert: {
           description?: string | null
@@ -105,6 +106,7 @@ export type Database = {
           program_id?: string
           program_name: string
           program_type?: string | null
+          category: string
         }
         Update: {
           description?: string | null
@@ -112,6 +114,7 @@ export type Database = {
           program_id?: string
           program_name?: string
           program_type?: string | null
+          category?: string
         }
         Relationships: []
       }
