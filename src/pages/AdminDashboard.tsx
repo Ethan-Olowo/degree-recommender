@@ -5,19 +5,39 @@ import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
-import { Users, GraduationCap, TrendingUp, Settings, BarChart3, Database, Shield, Activity } from 'lucide-react';
+import { Users, GraduationCap, TrendingUp, Settings, BarChart3, Database, Shield, Activity, Home, FileText, ChevronDown, Sliders, Building2, BookOpen, ThumbsUp, Target, Brain } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Stats {
   totalUsers: number;
-  totalPrograms: number;
+  newUsersThisMonth: number;
   totalRecommendations: number;
+  recommendationsLiked: number;
+  likePercentage: number;
+  programsByCategory: { category: string; count: number }[];
+  activeAlgorithm: string;
+  averageLikeRate: number;
+  topIndustries: { industry_name: string; value: number }[];
+  avgCategoryConfidence: number;
 }
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
-    totalPrograms: 0,
+    newUsersThisMonth: 0,
     totalRecommendations: 0,
+    recommendationsLiked: 0,
+    likePercentage: 0,
+    programsByCategory: [],
+    activeAlgorithm: 'Default',
+    averageLikeRate: 0,
+    topIndustries: [],
+    avgCategoryConfidence: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -27,25 +47,92 @@ const AdminDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      // Fetch user count
+      // Fetch total user count
       const { count: userCount } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch program count
-      const { count: programCount } = await supabase
-        .from('degree_programs')
-        .select('*', { count: 'exact', head: true });
+      // Fetch new users this month - placeholder for now
+      const newUsersCount = 0;
 
-      // Fetch recommendation count
-      const { count: recommendationCount } = await supabase
+      // Fetch recommendation stats
+      const { data: recommendations } = await supabase
         .from('recommendations')
-        .select('*', { count: 'exact', head: true });
+        .select('liked');
+
+      const totalRecs = recommendations?.length || 0;
+      const likedRecs = recommendations?.filter(r => r.liked).length || 0;
+      const likePercent = totalRecs > 0 ? (likedRecs / totalRecs) * 100 : 0;
+
+      // Fetch programs by category
+      const { data: programs } = await supabase
+        .from('degree_programs')
+        .select('category');
+
+      const categoryMap = new Map<string, number>();
+      programs?.forEach(p => {
+        const category = p.category || 'Uncategorized';
+        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+      });
+
+      const programsByCategory = Array.from(categoryMap.entries()).map(([category, count]) => ({
+        category,
+        count,
+      }));
+
+      // Fetch active algorithm - simplified type handling
+      const algoResult = await (supabase as any)
+        .from('recommendation_weights')
+        .select('algorithm_id')
+        .eq('current', true)
+        .maybeSingle();
+
+      const activeAlgoId = algoResult.data?.algorithm_id || 'Default';
+
+      // Fetch top 3 industries by market indicator - simplified
+      const industriesResult = await (supabase as any)
+        .from('market_indicator_values')
+        .select('industry_id, value')
+        .order('value', { ascending: false })
+        .limit(3);
+
+      const topIndustriesData = industriesResult.data || [];
+      const industriesFormatted: { industry_name: string; value: number }[] = [];
+
+      for (const ind of topIndustriesData) {
+        const industryResult = await (supabase as any)
+          .from('industries')
+          .select('industry_name')
+          .eq('industry_id', ind.industry_id)
+          .maybeSingle();
+
+        industriesFormatted.push({
+          industry_name: industryResult.data?.industry_name || 'Unknown',
+          value: ind.value || 0,
+        });
+      }
+
+      // Fetch average category confidence - simplified
+      const confidenceResult = await (supabase as any)
+        .from('category_confidence')
+        .select('prediction_confidence');
+
+      const confidenceData = confidenceResult.data || [];
+      const avgConfidence = confidenceData.length
+        ? confidenceData.reduce((sum: number, c: any) => sum + (c.prediction_confidence || 0), 0) / confidenceData.length
+        : 0;
 
       setStats({
         totalUsers: userCount || 0,
-        totalPrograms: programCount || 0,
-        totalRecommendations: recommendationCount || 0
+        newUsersThisMonth: newUsersCount,
+        totalRecommendations: totalRecs,
+        recommendationsLiked: likedRecs,
+        likePercentage: likePercent,
+        programsByCategory,
+        activeAlgorithm: activeAlgoId,
+        averageLikeRate: likePercent,
+        topIndustries: industriesFormatted,
+        avgCategoryConfidence: avgConfidence,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -54,151 +141,249 @@ const AdminDashboard = () => {
     }
   };
 
-  const statCards = [
+  const kpiCards = [
     {
       title: 'Total Users',
-      value: stats.totalUsers,
+      value: stats.totalUsers.toLocaleString(),
+      subValue: `+${stats.newUsersThisMonth} this month`,
       icon: Users,
       description: 'Registered users in the system',
-      color: 'text-primary'
-    },
-    {
-      title: 'Degree Programs',
-      value: stats.totalPrograms,
-      icon: GraduationCap,
-      description: 'Available degree programs',
-      color: 'text-success'
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+      link: '/admin/reports/users',
     },
     {
       title: 'Recommendations',
-      value: stats.totalRecommendations,
-      icon: TrendingUp,
+      value: stats.totalRecommendations.toLocaleString(),
+      subValue: `${stats.likePercentage.toFixed(1)}% liked`,
+      icon: ThumbsUp,
       description: 'Total recommendations generated',
-      color: 'text-warning'
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      link: '/admin/reports/recommendations',
+    },
+    {
+      title: 'Degree Programs',
+      value: stats.programsByCategory.length > 0 
+        ? `${stats.programsByCategory.reduce((sum, c) => sum + c.count, 0)} total`
+        : '0 total',
+      subValue: `${stats.programsByCategory.length} categories`,
+      icon: GraduationCap,
+      description: 'Available degree programs',
+      color: 'text-accent',
+      bgColor: 'bg-accent/10',
+      link: '/admin/reports/degrees',
+    },
+    {
+      title: 'Active Algorithm',
+      value: stats.averageLikeRate.toFixed(1) + '%',
+      subValue: 'Average like rate',
+      icon: Brain,
+      description: 'Recommendation performance',
+      color: 'text-warning',
+      bgColor: 'bg-warning/10',
+      link: '/admin/algorithms',
+    },
+    {
+      title: 'Top Industry',
+      value: stats.topIndustries[0]?.industry_name || 'N/A',
+      subValue: stats.topIndustries[0] ? `Value: ${stats.topIndustries[0].value.toFixed(2)}` : '',
+      icon: Building2,
+      description: 'Highest market indicator',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+      link: '/admin/reports/market',
+    },
+    {
+      title: 'Prediction Confidence',
+      value: `${(stats.avgCategoryConfidence * 100).toFixed(1)}%`,
+      subValue: 'Average confidence',
+      icon: Target,
+      description: 'Category prediction accuracy',
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      link: '/admin/reports/recommendations',
     },
   ];
 
-  const adminActions = [
-    {
-      title: 'Manage Degrees',
-      description: 'Add, edit, or remove degree programs',
-      icon: GraduationCap,
-      link: '/admin/degrees',
-      color: 'bg-gradient-primary'
-    },
-    {
-      title: 'Manage Algorithms',
-      description: 'Configure recommendation algorithms',
-      icon: Settings,
-      link: '/admin/algorithms',
-      color: 'bg-gradient-ocean'
-    },
-    {
-      title: 'System Reports',
-      description: 'View detailed analytics and reports',
-      icon: BarChart3,
-      link: '/admin/reports',
-      color: 'bg-gradient-primary'
-    },
-    {
-      title: 'Database Management',
-      description: 'Manage database and data integrity',
-      icon: Database,
-      link: '/admin/database',
-      color: 'bg-gradient-ocean'
-    }
-  ];
 
   return (
     <ProtectedRoute requireAdmin>
       <Layout>
         <div className="space-y-8 animate-fade-in">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h1 className="text-4xl font-bold">
-                Admin <span className="gradient-text">Dashboard</span>
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                System overview and management tools
-              </p>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-success/10 text-success rounded-lg">
-              <Shield className="h-5 w-5" />
-              <span className="font-medium">Admin Access</span>
+          {/* Top Navigation Bar */}
+          <div className="glass rounded-lg border border-border/50 p-4">
+            <div className="flex items-center gap-6">
+              <Link
+                to="/admin"
+                className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary"
+              >
+                <Home className="h-4 w-4" />
+                Home
+              </Link>
+
+              {/* Reports Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary">
+                  <FileText className="h-4 w-4" />
+                  Reports
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/reports/users" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Users & Demographics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/reports/academics" className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      Academic & Subjects
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/reports/degrees" className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4" />
+                      Degrees & Industries
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/reports/recommendations" className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Recommendations & Algorithms
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/reports/market" className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" />
+                      Market Insights
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Manage Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary">
+                  <Settings className="h-4 w-4" />
+                  Manage
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/degrees" className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4" />
+                      Degrees
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/algorithms" className="flex items-center gap-2">
+                      <Sliders className="h-4 w-4" />
+                      Algorithms
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/industries" className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Industries
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/subjects" className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      Subjects
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="ml-auto flex items-center gap-2 px-4 py-2 bg-success/10 text-success rounded-lg">
+                <Shield className="h-5 w-5" />
+                <span className="font-medium">Admin Access</span>
+              </div>
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {statCards.map((stat, index) => (
-              <Card
-                key={stat.title}
-                className="glass card-hover animate-scale-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">
+          {/* Header */}
+          <div className="space-y-1">
+            <h1 className="text-4xl font-bold">
+              Admin <span className="gradient-text">Dashboard</span>
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              System overview and key performance indicators
+            </p>
+          </div>
+
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {kpiCards.map((card, index) => (
+              <Link key={card.title} to={card.link}>
+                <Card
+                  className="glass card-hover h-full animate-scale-in"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardDescription className="text-xs mb-1">
+                          {card.title}
+                        </CardDescription>
+                        <CardTitle className="text-2xl font-bold">
+                          {isLoading ? (
+                            <div className="h-8 w-24 bg-muted rounded animate-shimmer"></div>
+                          ) : (
+                            card.value
+                          )}
+                        </CardTitle>
+                      </div>
+                      <div className={`h-12 w-12 rounded-lg ${card.bgColor} flex items-center justify-center`}>
+                        <card.icon className={`h-6 w-6 ${card.color}`} />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
                     {isLoading ? (
-                      <div className="h-8 w-20 bg-muted rounded animate-shimmer"></div>
+                      <div className="h-4 w-32 bg-muted rounded animate-shimmer mb-2"></div>
                     ) : (
-                      stat.value.toLocaleString()
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {card.subValue}
+                      </p>
                     )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.description}
-                  </p>
-                </CardContent>
-              </Card>
+                    <p className="text-xs text-muted-foreground">
+                      {card.description}
+                    </p>
+                    <Button variant="link" className="p-0 h-auto mt-2 text-primary">
+                      View full report →
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
 
-          {/* Quick Actions */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {adminActions.map((action, index) => (
-                <Link key={action.title} to={action.link}>
-                  <Card
-                    className="glass card-hover h-full animate-fade-in"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <CardHeader>
-                      <div className="flex items-center gap-4">
-                        <div className={`h-12 w-12 rounded-lg ${action.color} flex items-center justify-center`}>
-                          <action.icon className="h-6 w-6 text-primary-foreground" />
-                        </div>
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">{action.title}</CardTitle>
-                          <CardDescription>{action.description}</CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle>Recent System Activity</CardTitle>
-              <CardDescription>Latest events and changes in the system</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center py-8 text-muted-foreground">
-                <Activity className="h-12 w-12 mx-auto mb-4" />
-                <p>Activity logging will be available soon</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Quick Insights */}
+          {!isLoading && stats.programsByCategory.length > 0 && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle>Programs by Category</CardTitle>
+                <CardDescription>Distribution of degree programs across categories</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {stats.programsByCategory.map((cat) => (
+                    <div
+                      key={cat.category}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <span className="text-sm font-medium">{cat.category}</span>
+                      <span className="text-2xl font-bold text-primary">{cat.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </Layout>
     </ProtectedRoute>
