@@ -19,6 +19,7 @@ import { useAuth } from "./contexts/AuthContext";
 import ManageDegrees from "./pages/ManageDegrees";
 import EditDegree from "./pages/EditDegree";
 import NotFound from "./pages/NotFound";
+import RecommendationDetails from "./pages/RecommendationDetails";
 
 const queryClient = new QueryClient();
 
@@ -37,9 +38,11 @@ const AppRoutes = () => {
       <Route path="/compare" element={<ComparePrograms />} />
       <Route path="/profile/create" element={<ProfileCreate />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/recommendation/:recommendationId" element={<RecommendationDetails />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/degrees" element={<ManageDegrees />} />
       <Route path="/admin/degrees/edit/:programId" element={<EditDegree />} />
+
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

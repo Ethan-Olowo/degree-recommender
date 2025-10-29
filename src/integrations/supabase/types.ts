@@ -228,31 +228,34 @@ export type Database = {
       }
       recommendations: {
         Row: {
-          algorithm_source: string | null
-          confidence_score: number | null
-          explanation: string | null
-          market_score: number | null
-          program_id: string
-          recommendation_id: string
-          user_id: string
+          recommendation_id: string; // uuid
+          user_id: string; // uuid
+          program_id: string | null; // uuid
+          confidence_score: number | null;
+          explanation: string | null;
+          market_score: number | null;
+          created_at: string;
+          liked: boolean;
         }
         Insert: {
-          algorithm_source?: string | null
-          confidence_score?: number | null
-          explanation?: string | null
-          market_score?: number | null
-          program_id: string
-          recommendation_id?: string
-          user_id: string
+          recommendation_id?: string;
+          user_id: string;
+          program_id?: string | null;
+          confidence_score?: number | null;
+          explanation?: string | null;
+          market_score?: number | null;
+          created_at?: string;
+          liked?: boolean;
         }
         Update: {
-          algorithm_source?: string | null
-          confidence_score?: number | null
-          explanation?: string | null
-          market_score?: number | null
-          program_id?: string
-          recommendation_id?: string
-          user_id?: string
+          recommendation_id?: string;
+          user_id?: string;
+          program_id?: string | null;
+          confidence_score?: number | null;
+          explanation?: string | null;
+          market_score?: number | null;
+          created_at?: string;
+          liked?: boolean;
         }
         Relationships: [
           {
