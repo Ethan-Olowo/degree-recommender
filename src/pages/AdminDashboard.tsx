@@ -182,7 +182,7 @@ const AdminDashboard = () => {
       description: 'Recommendation performance',
       color: 'text-warning',
       bgColor: 'bg-warning/10',
-      link: '/admin/algorithms',
+      link: '/admin/reports/recommendations',
     },
     {
       title: 'Top Industry',
