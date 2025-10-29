@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import RecommendationDetails from "./pages/RecommendationDetails";
 import RecommendationsAlgorithmsReports from "./pages/RecommendationsAlgorithmsReports";
 import DegreesIndustriesReports from "./pages/DegreesIndustriesReports";
+import UsersDemographicsReports from "./pages/UsersDemographicsReports";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const AppRoutes = () => {
       <Route path="/admin/degrees/edit/:programId" element={<EditDegree />} />
       <Route path="/admin/reports/recommendations" element={<RecommendationsAlgorithmsReports />} />
       <Route path="/admin/reports/degrees" element={<DegreesIndustriesReports />} />
+      <Route path="/admin/reports/users" element={<UsersDemographicsReports />} />
 
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
