@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { MessageCircle, X, Send, Maximize2, Minimize2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +19,7 @@ interface FloatingChatProps {
 
 export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -83,20 +84,38 @@ export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
     <>
       {/* Chat Panel */}
       {isOpen && (
-        <Card className="fixed bottom-24 right-6 w-96 h-[500px] shadow-2xl glass animate-scale-in z-50 flex flex-col">
+        <Card className={`fixed shadow-2xl glass animate-scale-in z-50 flex flex-col transition-all duration-300 ${
+          isFullscreen 
+            ? 'inset-4 w-auto h-auto' 
+            : 'bottom-24 right-6 w-96 h-[500px]'
+        }`}>
           <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
             <CardTitle className="text-lg flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary" />
               Chat Assistant
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(false)}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="h-8 w-8 p-0"
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsOpen(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
             <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
@@ -122,7 +141,7 @@ export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
                         }`}
                       >
                         {message.role === 'assistant' && message.content !== '...' ? (
-                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto">
+                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto prose-table:border-collapse prose-table:w-full prose-th:border prose-th:border-border prose-th:bg-muted prose-th:p-2 prose-th:text-left prose-td:border prose-td:border-border prose-td:p-2">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           </div>
                         ) : (
