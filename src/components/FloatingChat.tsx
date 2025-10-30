@@ -6,6 +6,7 @@ import { MessageCircle, X, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -121,8 +122,8 @@ export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
                         }`}
                       >
                         {message.role === 'assistant' && message.content !== '...' ? (
-                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           </div>
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
