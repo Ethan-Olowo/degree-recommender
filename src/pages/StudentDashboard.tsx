@@ -134,7 +134,7 @@ const StudentDashboard = () => {
         });
       }
 
-      // Fetch recommendations
+      // Fetch the 5 most recently generated recommendations
       const { data: recData } = await supabase
         .from("recommendations")
         .select(
@@ -152,11 +152,13 @@ const StudentDashboard = () => {
         `
         )
         .eq("user_id", user?.id)
-        .order("confidence_score", { ascending: false })
-        .limit(6);
+        .order("created_at", { ascending: false })
+        .limit(5);
 
       if (recData) {
-        setRecommendations(recData as any);
+        // Sort by confidence_score descending before displaying
+        const sorted = (recData as any[]).sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
+        setRecommendations(sorted);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
