@@ -51,20 +51,20 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-const EditDegree = () => {
-  const { programId } = useParams<{ programId: string }>();
+interface EditDegreeProps {
+  programId: string;
+  onClose: () => void;
+  allIndustries: Industry[];
+  allSubjects: Subject[];
+}
+
+const EditDegree = ({ programId, onClose, allIndustries, allSubjects }: EditDegreeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [degree, setDegree] = useState<DegreeProgram | null>(null);
-  
-  // Industries
-  const [allIndustries, setAllIndustries] = useState<Industry[]>([]);
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [selectedIndustryToAdd, setSelectedIndustryToAdd] = useState<string>('');
-  
-  // Subject Requirements
-  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [subjectRequirements, setSubjectRequirements] = useState<{ subject_id: string; requirement_detail: string }[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [requirementDetail, setRequirementDetail] = useState<string>('');
@@ -81,33 +81,10 @@ const EditDegree = () => {
   });
 
   useEffect(() => {
-    fetchAllData();
     if (programId && programId !== 'new') {
       fetchDegreeData();
     }
   }, [programId]);
-
-  const fetchAllData = async () => {
-    try {
-      const [industriesRes, subjectsRes] = await Promise.all([
-        supabase.from('industries').select('*').order('industry_name'),
-        supabase.from('subjects').select('*').order('subject_name'),
-      ]);
-
-      if (industriesRes.error) throw industriesRes.error;
-      if (subjectsRes.error) throw subjectsRes.error;
-
-      setAllIndustries(industriesRes.data || []);
-      setAllSubjects(subjectsRes.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load data',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const fetchDegreeData = async () => {
     if (!programId) return;
@@ -230,7 +207,7 @@ const EditDegree = () => {
         }
       }
 
-      navigate('/admin/degrees');
+      onClose();
     } catch (error) {
       console.error('Error saving degree:', error);
       toast({
@@ -278,278 +255,273 @@ const EditDegree = () => {
   };
 
   return (
-    <ProtectedRoute requireAdmin>
-      <Layout>
-        <div className="flex min-h-[80vh] items-center justify-center">
-          <div className="space-y-6 animate-fade-in max-w-4xl w-full">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/degrees')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-4xl font-bold">
-                  {programId === 'new' ? 'Create' : 'Edit'} <span className="gradient-text">Degree Program</span>
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  {programId === 'new' ? 'Add a new degree program' : 'Update degree program details'}
-                </p>
-              </div>
-            </div>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Basic Information Card */}
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle>Basic Information</CardTitle>
-                  <CardDescription>
-                    Enter the basic details of the degree program
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="program_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Program Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Bachelor of Computer Science" {...field} />
-                        </FormControl>
-                        <FormDescription>The official name of the degree program</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="program_type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Program Type</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., Bachelor's, Master's, PhD"
-                            {...field}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormDescription>The level or type of degree</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <FormControl>
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CATEGORY_OPTIONS.map(option => (
-                                <SelectItem key={option} value={option}>
-                                  {option}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormDescription>
-                          The main category for this degree program
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="minimum_gpa"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Minimum GPA</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="5"
-                            placeholder="e.g., 3.0"
-                            {...field}
-                            value={field.value ?? ''}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Minimum GPA requirement for admission (optional)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Enter a detailed description of the degree program..."
-                            className="min-h-[100px]"
-                            {...field}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          A brief overview of what this degree program offers
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Industries Card */}
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle>Related Industries</CardTitle>
-                  <CardDescription>
-                    Select industries that are relevant to this degree program
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    <Select value={selectedIndustryToAdd} onValueChange={setSelectedIndustryToAdd}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select an industry" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allIndustries
-                          .filter(industry => !selectedIndustries.includes(industry.industry_id))
-                          .map(industry => (
-                            <SelectItem key={industry.industry_id} value={industry.industry_id}>
-                              {industry.industry_name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" onClick={handleAddIndustry} disabled={!selectedIndustryToAdd}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {selectedIndustries.map(industryId => (
-                      <Badge key={industryId} variant="secondary" className="gap-1">
-                        {getIndustryName(industryId)}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveIndustry(industryId)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                    {selectedIndustries.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No industries selected</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Subject Requirements Card */}
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle>Subject Requirements</CardTitle>
-                  <CardDescription>
-                    Define subject requirements for this degree program
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select a subject" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allSubjects
-                          .filter(subject => !subjectRequirements.some(r => r.subject_id === subject.subject_id))
-                          .map(subject => (
-                            <SelectItem key={subject.subject_id} value={subject.subject_id}>
-                              {subject.subject_name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Requirement details (optional)"
-                      value={requirementDetail}
-                      onChange={(e) => setRequirementDetail(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button type="button" onClick={handleAddRequirement} disabled={!selectedSubject}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {subjectRequirements.map(req => (
-                      <div key={req.subject_id} className="flex items-center justify-between p-2 border rounded">
-                        <div>
-                          <p className="font-medium">{getSubjectName(req.subject_id)}</p>
-                          {req.requirement_detail && (
-                            <p className="text-sm text-muted-foreground">{req.requirement_detail}</p>
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveRequirement(req.subject_id)}
-                        >
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-                    {subjectRequirements.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No subject requirements added</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/admin/degrees')}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading} className="gap-2">
-                  <Save className="h-4 w-4" />
-                  {isLoading ? 'Saving...' : 'Save Degree Program'}
-                </Button>
-              </div>
-            </form>
-          </Form>
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{ width: '100%', height: '100%' }}
+    >
+      <div
+        className="space-y-6 animate-fade-in bg-background rounded-lg shadow-lg"
+        style={{ width: '80vw', height: '80vh', maxWidth: '80vw', maxHeight: '80vh', overflowY: 'auto', padding: '2rem' }}
+      >
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-4xl font-bold">
+              {programId === 'new' ? 'Create' : 'Edit'} <span className="gradient-text">Degree Program</span>
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              {programId === 'new' ? 'Add a new degree program' : 'Update degree program details'}
+            </p>
+          </div>
         </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Basic Information Card */}
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle>Basic Information</CardTitle>
+                <CardDescription>
+                  Enter the basic details of the degree program
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* ...existing code for form fields... */}
+                <FormField
+                  control={form.control}
+                  name="program_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Program Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Bachelor of Computer Science" {...field} />
+                      </FormControl>
+                      <FormDescription>The official name of the degree program</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="program_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Program Type</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Bachelor's, Master's, PhD"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormDescription>The level or type of degree</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <FormControl>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORY_OPTIONS.map(option => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormDescription>
+                        The main category for this degree program
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="minimum_gpa"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Minimum GPA</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="5"
+                          placeholder="e.g., 3.0"
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Minimum GPA requirement for admission (optional)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter a detailed description of the degree program..."
+                          className="min-h-[100px]"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        A brief overview of what this degree program offers
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Industries Card */}
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle>Related Industries</CardTitle>
+                <CardDescription>
+                  Select industries that are relevant to this degree program
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* ...existing code for industries... */}
+                <div className="flex gap-2">
+                  <Select value={selectedIndustryToAdd} onValueChange={setSelectedIndustryToAdd}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select an industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allIndustries
+                        .filter(industry => !selectedIndustries.includes(industry.industry_id))
+                        .map(industry => (
+                          <SelectItem key={industry.industry_id} value={industry.industry_id}>
+                            {industry.industry_name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" onClick={handleAddIndustry} disabled={!selectedIndustryToAdd}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedIndustries.map(industryId => (
+                    <Badge key={industryId} variant="secondary" className="gap-1">
+                      {getIndustryName(industryId)}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveIndustry(industryId)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {selectedIndustries.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No industries selected</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Subject Requirements Card */}
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle>Subject Requirements</CardTitle>
+                <CardDescription>
+                  Define subject requirements for this degree program
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* ...existing code for subject requirements... */}
+                <div className="flex gap-2">
+                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allSubjects
+                        .filter(subject => !subjectRequirements.some(r => r.subject_id === subject.subject_id))
+                        .map(subject => (
+                          <SelectItem key={subject.subject_id} value={subject.subject_id}>
+                            {subject.subject_name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Requirement details (optional)"
+                    value={requirementDetail}
+                    onChange={(e) => setRequirementDetail(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button type="button" onClick={handleAddRequirement} disabled={!selectedSubject}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {subjectRequirements.map(req => (
+                    <div key={req.subject_id} className="flex items-center justify-between p-2 border rounded">
+                      <div>
+                        <p className="font-medium">{getSubjectName(req.subject_id)}</p>
+                        {req.requirement_detail && (
+                          <p className="text-sm text-muted-foreground">{req.requirement_detail}</p>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveRequirement(req.subject_id)}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                  {subjectRequirements.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No subject requirements added</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading} className="gap-2">
+                <Save className="h-4 w-4" />
+                {isLoading ? 'Saving...' : 'Save Degree Program'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
-      </Layout>
-    </ProtectedRoute>
+    </div>
   );
 };
 
