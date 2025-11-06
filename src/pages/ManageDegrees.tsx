@@ -11,8 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, GraduationCap, CircleAlert as AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogOverlay, DialogTitle } from '@/components/ui/dialog';
-import EditDegree from './EditDegree';
 
 type DegreeProgram = Tables<'degree_programs'> & {
   industries: string[];
@@ -24,13 +22,9 @@ type Subject = Tables<'subjects'>;
 const ManageDegrees = () => {
   const navigate = useNavigate();
   const [degrees, setDegrees] = useState<DegreeProgram[]>([]);
-  const [allIndustries, setAllIndustries] = useState<Industry[]>([]);
-  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [degreeToDelete, setDegreeToDelete] = useState<DegreeProgram | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedDegreeId, setSelectedDegreeId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,22 +34,16 @@ const ManageDegrees = () => {
   const fetchAllData = async () => {
     try {
       setIsLoading(true);
-      const [degreesRes, industriesRes, subjectsRes] = await Promise.all([
-        supabase
-          .from('degree_programs')
-          .select(`
-            *,
-            degree_industries:degree_industries(industry_id, industries:industries(industry_name)),
-            subject_requirements:subject_requirements(subject_id, subjects:subjects(subject_name))
-          `)
-          .order('program_name'),
-        supabase.from('industries').select('*').order('industry_name'),
-        supabase.from('subjects').select('*').order('subject_name'),
-      ]);
+      const degreesRes = await supabase
+        .from('degree_programs')
+        .select(`
+          *,
+          degree_industries:degree_industries(industry_id, industries:industries(industry_name)),
+          subject_requirements:subject_requirements(subject_id, subjects:subjects(subject_name))
+        `)
+        .order('program_name');
 
       if (degreesRes.error) throw degreesRes.error;
-      if (industriesRes.error) throw industriesRes.error;
-      if (subjectsRes.error) throw subjectsRes.error;
 
       const formattedDegrees = degreesRes.data.map((degree) => ({
         ...degree,
@@ -64,8 +52,6 @@ const ManageDegrees = () => {
       }));
 
       setDegrees(formattedDegrees || []);
-      setAllIndustries(industriesRes.data || []);
-      setAllSubjects(subjectsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -83,13 +69,7 @@ const ManageDegrees = () => {
   };
 
   const handleEdit = (programId: string) => {
-    setSelectedDegreeId(programId);
-    setIsEditModalOpen(true);
-  };
-
-  const closeEditModal = () => {
-    setIsEditModalOpen(false);
-    setSelectedDegreeId(null);
+    navigate(`/admin/degrees/edit/${programId}`);
   };
 
   const handleDelete = (degree: DegreeProgram) => {
@@ -273,31 +253,6 @@ const ManageDegrees = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        <Dialog open={isEditModalOpen} onOpenChange={closeEditModal}>
-          <DialogContent
-            style={{
-              width: '80vw',
-              height: '80vh',
-              maxWidth: '80vw',
-              maxHeight: '80vh',
-              overflow: 'auto',
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            className="p-0"
-          >
-            {selectedDegreeId && (
-              <EditDegree
-                programId={selectedDegreeId}
-                onClose={closeEditModal}
-                allIndustries={allIndustries}
-                allSubjects={allSubjects}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
       </Layout>
     </ProtectedRoute>
   );

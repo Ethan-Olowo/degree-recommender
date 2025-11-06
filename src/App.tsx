@@ -25,6 +25,7 @@ import DegreesIndustriesReports from "./pages/DegreesIndustriesReports";
 import UsersDemographicsReports from "./pages/UsersDemographicsReports";
 import ManageSubjects from "./pages/ManageSubjects";
 import ManageIndustries from "./pages/ManageIndustries";
+import ManageAlgorithms from "./pages/ManageAlgorithms";
 
 const queryClient = new QueryClient();
 
@@ -48,7 +49,8 @@ const AppRoutes = () => {
       <Route path="/admin/degrees" element={<ManageDegrees />} />
       <Route path="/admin/degrees/edit/:programId" element={<EditDegree />} />
       <Route path="/admin/subjects" element={<ManageSubjects />} />
-  <Route path="/admin/industries" element={<ManageIndustries />} />
+      <Route path="/admin/industries" element={<ManageIndustries />} />
+      <Route path="/admin/algorithms" element={<ManageAlgorithms />} />
       <Route path="/admin/reports/recommendations" element={<RecommendationsAlgorithmsReports />} />
       <Route path="/admin/reports/degrees" element={<DegreesIndustriesReports />} />
       <Route path="/admin/reports/users" element={<UsersDemographicsReports />} />

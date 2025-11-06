@@ -51,15 +51,9 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-interface EditDegreeProps {
-  programId: string;
-  onClose: () => void;
-  allIndustries: Industry[];
-  allSubjects: Subject[];
-}
-
-const EditDegree = ({ programId, onClose, allIndustries, allSubjects }: EditDegreeProps) => {
+const EditDegree = () => {
   const navigate = useNavigate();
+  const { programId } = useParams<{ programId: string }>();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [degree, setDegree] = useState<DegreeProgram | null>(null);
@@ -68,6 +62,8 @@ const EditDegree = ({ programId, onClose, allIndustries, allSubjects }: EditDegr
   const [subjectRequirements, setSubjectRequirements] = useState<{ subject_id: string; requirement_detail: string }[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [requirementDetail, setRequirementDetail] = useState<string>('');
+  const [allIndustries, setAllIndustries] = useState<Industry[]>([]);
+  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -81,10 +77,25 @@ const EditDegree = ({ programId, onClose, allIndustries, allSubjects }: EditDegr
   });
 
   useEffect(() => {
+    fetchIndustriesAndSubjects();
     if (programId && programId !== 'new') {
       fetchDegreeData();
     }
   }, [programId]);
+
+  const fetchIndustriesAndSubjects = async () => {
+    try {
+      const [industriesRes, subjectsRes] = await Promise.all([
+        supabase.from('industries').select('*'),
+        supabase.from('subjects').select('*'),
+      ]);
+
+      if (industriesRes.data) setAllIndustries(industriesRes.data);
+      if (subjectsRes.data) setAllSubjects(subjectsRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
 
   const fetchDegreeData = async () => {
     if (!programId) return;
@@ -207,7 +218,7 @@ const EditDegree = ({ programId, onClose, allIndustries, allSubjects }: EditDegr
         }
       }
 
-      onClose();
+      navigate('/admin/degrees');
     } catch (error) {
       console.error('Error saving degree:', error);
       toast({
@@ -508,7 +519,7 @@ const EditDegree = ({ programId, onClose, allIndustries, allSubjects }: EditDegr
               <Button
                 type="button"
                 variant="outline"
-                onClick={onClose}
+                onClick={() => navigate('/admin/degrees')}
                 disabled={isLoading}
               >
                 Cancel
