@@ -1,18 +1,20 @@
 import os
 import requests
-from models import DegreeProgram, Recommendation
+from models import DegreeProgram, Recommendation, User
 
 from dotenv import load_dotenv
 load_dotenv()
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise EnvironmentError("OPENROUTER_API_KEY environment variable is not set.")
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 class ExplanationGenerator:
     """
     A class to generate explanations for degree recommendations.
     """
-    def generate_explanation(self, user, degree_program: DegreeProgram, recommendation: Recommendation, trends) -> str:
+    def generate_explanation(self, user: User, degree_program: DegreeProgram, recommendation: Recommendation, trends) -> str:
         """
         Generates a natural language explanation for a recommendation using an LLM.
         """
@@ -26,37 +28,63 @@ class ExplanationGenerator:
         academic_performance = f"GPA: {gpa}" if gpa is not None else "N/A"
 
         personal_interests = ', '.join([pi.interest for pi in user.personal_interests]) if user.personal_interests else "N/A"
-        socioeconomic = user.socioeconomic.dict() if user.socioeconomic else {}
-        socioeconomic_str = ', '.join([f"{k}: {v}" for k, v in socioeconomic.items()]) if socioeconomic else "N/A"
+        if user.socioeconomic:
+            socioeconomic_attrs = [
+                ("Country Code", user.socioeconomic.country_code),
+                ("Income Level", user.socioeconomic.income_level),
+                ("Gender", user.socioeconomic.gender),
+                ("School Type", user.socioeconomic.school_type),
+                ("Father's Education", user.socioeconomic.father_education),
+                ("Mother's Education", user.socioeconomic.mother_education),
+                ("Funding Method", user.socioeconomic.funding_method)
+            ]
+            socioeconomic_str = ', '.join([f"{label}: {value}" for label, value in socioeconomic_attrs if value is not None])
+            if not socioeconomic_str:
+                socioeconomic_str = "N/A"
+        else:
+            socioeconomic_str = "N/A"
+
 
         # Degree program details
-        industries = ', '.join(degree_program.industries) if degree_program.industries else "N/A"
-        required_subjects = ', '.join([req.subject.subject_name for req in degree_program.subject_requirements if req.subject]) if degree_program.subject_requirements else "N/A"
+        industries_list = getattr(degree_program, 'industries', []) or []
+        industries = ', '.join(industries_list) if industries_list else "N/A"
+        subject_requirements_list = getattr(degree_program, 'subject_requirements', []) or []
+        required_subjects = ', '.join([req.subject.subject_name for req in subject_requirements_list if getattr(req, 'subject', None)]) if subject_requirements_list else "N/A"
 
-        # Construct a detailed prompt for the LLM
+        # Refactored prompt for improved clarity, context structure, and LLM efficiency
         prompt = f"""
-        Given the following user profile and recommended degree program, generate a concise and encouraging explanation for why this degree is a good fit for the user.
+        You are an experienced academic advisor helping students choose degree programs. 
+        Your task is to explain why a given program is a good fit for a specific student.
 
+        Context:
         User Profile:
         - Academic Performance: {academic_performance}
-        - Personal Interests: {personal_interests}
-        - Socioeconomic Indicators: {socioeconomic_str}
+        - Interests: {personal_interests}
+        - Socioeconomic Background: {socioeconomic_str}
 
-        Recommended Degree Program:
-        - Program Name: {degree_program.program_name}
+        Recommended Degree:
+        - Name: {degree_program.program_name}
         - Description: {degree_program.description}
+        - Category: {degree_program.category}
         - Industries: {industries}
         - Required Subjects: {required_subjects}
 
-        Recommendation Details:
+        Recommendation Insights:
         - Confidence Score: {recommendation.confidence_score}
         - Market Score: {recommendation.market_score}
-        - Algorithm Source: {recommendation.algorithm_source}
 
-        Market Trends:
+        Market Trends Summary:
         {trends}
 
-        Based on this information, explain in a friendly tone why the '{degree_program.program_name}' program is a strong recommendation for this user. Highlight connections between the user's profile and the program's features.
+        Instructions:
+        1. Write a concise and encouraging explanation (max 150 words).
+        2. Use friendly, clear language understandable to a high school student.
+        3. Highlight how the program aligns with the user’s profile and market opportunities.
+        4. Do not restate the input data. Focus on synthesis.
+        5. Mention how current market trends and the user's interests support this choice.
+        6. Categories are derived from peer clustering and content-based filtering methods.
+
+        Now generate the explanation.
         """
 
         try:
@@ -64,15 +92,17 @@ class ExplanationGenerator:
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json"
             }
+            
             payload = {
                 "model": "openai/gpt-oss-20b:free",
                 "messages": [
-                    {"role": "system", "content": "You are a helpful academic advisor."},
+                    {"role": "system", "content": "You are a helpful academic advisor who explains recommendations clearly and positively."},
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": 0.7,
-                "max_tokens": 150
+                "temperature": 0.65,
+                "top_p": 0.9
             }
+
             resp = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -80,5 +110,4 @@ class ExplanationGenerator:
             return explanation
         except Exception as e:
             print(f"Error calling LLM API: {e}")
-            # Fallback explanation if the API call fails
-            return f"The {degree_program.program_name} is recommended based on a {recommendation.algorithm_source} model with a confidence of {recommendation.confidence_score*100:.0f}%."
+            raise Exception("Failed to generate explanation from LLM.")
