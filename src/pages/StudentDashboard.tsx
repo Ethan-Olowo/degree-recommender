@@ -182,16 +182,9 @@ const StudentDashboard = () => {
     
     setIsGenerating(true);
     try {
-      const response = await fetch(`http://0.0.0.0:8000/users/${user.id}/recommendations/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate recommendations');
-      }
+      const response = await fetch(
+        `http://localhost:8000/users/${user.id}/recommendations/`
+      );
 
       const data = await response.json();
       

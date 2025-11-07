@@ -1,17 +1,37 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Layout } from '@/components/Layout';
-import { supabase } from '@/integrations/supabase/client';
-import { GraduationCap, ArrowLeft, Sparkles, BookOpen, TrendingUp, CheckCircle, GitCompare, Briefcase, Target, Info, Award, Heart, HeartOff } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Layout } from "@/components/Layout";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  GraduationCap,
+  ArrowLeft,
+  Sparkles,
+  BookOpen,
+  TrendingUp,
+  CheckCircle,
+  GitCompare,
+  Briefcase,
+  Target,
+  Info,
+  Award,
+  Heart,
+  HeartOff,
+} from "lucide-react";
 // ...existing code...
-import { Skeleton } from '@/components/ui/skeleton';
-import { CyclingLoader } from '@/components/CyclingLoader';
-import { toast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from "@/components/ui/skeleton";
+import { CyclingLoader } from "@/components/CyclingLoader";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Recommendation {
   recommendation_id: string;
@@ -46,7 +66,9 @@ const RecommendationDetails = () => {
   const { recommendationId } = useParams<{ recommendationId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [likeLoading, setLikeLoading] = useState(false);
   const [isGeneratingExplanation, setIsGeneratingExplanation] = useState(false);
@@ -58,14 +80,14 @@ const RecommendationDetails = () => {
     setLikeLoading(true);
     try {
       const { error } = await supabase
-        .from('recommendations')
+        .from("recommendations")
         .update({ liked: !recommendation.liked })
-        .eq('recommendation_id', recommendation.recommendation_id);
+        .eq("recommendation_id", recommendation.recommendation_id);
       if (!error) {
         setRecommendation({ ...recommendation, liked: !recommendation.liked });
       }
     } catch (e) {
-      console.error('Error updating like:', e);
+      console.error("Error updating like:", e);
     } finally {
       setLikeLoading(false);
     }
@@ -73,25 +95,15 @@ const RecommendationDetails = () => {
 
   const handleGenerateExplanation = async () => {
     if (!user?.id || !recommendationId) return;
-    
+
     setIsGeneratingExplanation(true);
     try {
       const response = await fetch(
-        `http://0.0.0.0:8000/users/${user.id}/recommendations/${recommendationId}/explanation`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+        `http://localhost:8000/${user.id}/recommendations/${recommendationId}/explanation`
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to generate explanation');
-      }
-
       const data = await response.json();
-      
+
       if (recommendation) {
         setRecommendation({
           ...recommendation,
@@ -104,7 +116,7 @@ const RecommendationDetails = () => {
         description: "Explanation has been generated.",
       });
     } catch (error) {
-      console.error('Error generating explanation:', error);
+      console.error("Error generating explanation:", error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -125,8 +137,9 @@ const RecommendationDetails = () => {
   const fetchRecommendationDetails = async () => {
     try {
       const { data, error } = await supabase
-        .from('recommendations')
-        .select(`
+        .from("recommendations")
+        .select(
+          `
           recommendation_id,
           user_id,
           program_id,
@@ -142,8 +155,9 @@ const RecommendationDetails = () => {
             description,
             minimum_gpa
           )
-        `)
-        .eq('recommendation_id', recommendationId)
+        `
+        )
+        .eq("recommendation_id", recommendationId)
         .maybeSingle();
       if (error) throw error;
       setRecommendation(data as any);
@@ -152,21 +166,27 @@ const RecommendationDetails = () => {
       const programId = data?.degree_programs?.program_id || data?.program_id;
       if (programId) {
         const { data: industriesData } = await supabase
-          .from('degree_industries')
-          .select(`industries (industry_name)`).eq('program_id', programId);
+          .from("degree_industries")
+          .select(`industries (industry_name)`)
+          .eq("program_id", programId);
         if (industriesData) {
-          setIndustries(industriesData.map((item: any) => item.industries).filter(Boolean) as Industry[]);
+          setIndustries(
+            industriesData
+              .map((item: any) => item.industries)
+              .filter(Boolean) as Industry[]
+          );
         }
 
         const { data: requirementsData } = await supabase
-          .from('subject_requirements')
-          .select(`subjects (subject_name), requirement_detail`).eq('program_id', programId);
+          .from("subject_requirements")
+          .select(`subjects (subject_name), requirement_detail`)
+          .eq("program_id", programId);
         if (requirementsData) {
           setRequirements(requirementsData as any);
         }
       }
     } catch (error) {
-      console.error('Error fetching recommendation details:', error);
+      console.error("Error fetching recommendation details:", error);
     } finally {
       setIsLoading(false);
     }
@@ -204,7 +224,8 @@ const RecommendationDetails = () => {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">Recommendation Not Found</h2>
             <p className="text-muted-foreground">
-              The recommendation you're looking for doesn't exist or has been removed.
+              The recommendation you're looking for doesn't exist or has been
+              removed.
             </p>
           </div>
           <Link to="/student-dashboard">
@@ -218,7 +239,9 @@ const RecommendationDetails = () => {
     );
   }
 
-  const confidencePercent = Math.round((recommendation.confidence_score || 0) * 100);
+  const confidencePercent = Math.round(
+    (recommendation.confidence_score || 0) * 100
+  );
   const marketPercent = Math.round((recommendation.market_score || 0) * 100);
 
   return (
@@ -250,7 +273,9 @@ const RecommendationDetails = () => {
                         <Award className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <CardTitle className="text-3xl">{recommendation.degree_programs?.program_name}</CardTitle>
+                        <CardTitle className="text-3xl">
+                          {recommendation.degree_programs?.program_name}
+                        </CardTitle>
                         <CardDescription className="text-base mt-1">
                           {recommendation.degree_programs?.program_type}
                         </CardDescription>
@@ -258,21 +283,27 @@ const RecommendationDetails = () => {
                     </div>
                     <div className="flex gap-2">
                       {recommendation.degree_programs?.minimum_gpa && (
-                        <Badge variant="secondary" className="flex items-center gap-1">
+                        <Badge
+                          variant="secondary"
+                          className="flex items-center gap-1"
+                        >
                           <Sparkles className="h-3 w-3" />
                           Min GPA: {recommendation.degree_programs.minimum_gpa}
                         </Badge>
                       )}
                     </div>
                     <div className="flex gap-2 items-center">
-                      <span className="text-xs text-muted-foreground">Recommended on: {new Date(recommendation.created_at).toLocaleString()}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Recommended on:{" "}
+                        {new Date(recommendation.created_at).toLocaleString()}
+                      </span>
                       <Button
-                        variant={recommendation.liked ? 'secondary' : 'outline'}
+                        variant={recommendation.liked ? "secondary" : "outline"}
                         size="icon"
                         className="ml-2"
                         onClick={handleToggleLike}
                         disabled={likeLoading}
-                        aria-label={recommendation.liked ? 'Unlike' : 'Like'}
+                        aria-label={recommendation.liked ? "Unlike" : "Like"}
                       >
                         {recommendation.liked ? (
                           <Heart className="h-4 w-4 text-red-500 fill-red-500" />
@@ -281,7 +312,10 @@ const RecommendationDetails = () => {
                         )}
                       </Button>
                       {recommendation.liked && (
-                        <Badge variant="secondary" className="flex items-center gap-1">
+                        <Badge
+                          variant="secondary"
+                          className="flex items-center gap-1"
+                        >
                           <CheckCircle className="h-3 w-3" />
                           Liked
                         </Badge>
@@ -292,7 +326,6 @@ const RecommendationDetails = () => {
               </CardHeader>
             </Card>
 
-
             <Card className="glass">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -302,12 +335,11 @@ const RecommendationDetails = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground leading-relaxed">
-                  {recommendation.degree_programs?.description || 'No detailed description available for this program.'}
+                  {recommendation.degree_programs?.description ||
+                    "No detailed description available for this program."}
                 </p>
               </CardContent>
             </Card>
-
-
 
             <Card className="glass">
               <CardHeader>
@@ -337,7 +369,7 @@ const RecommendationDetails = () => {
                         "Examining your interests and strengths…",
                         "Comparing program requirements with your profile…",
                         "Considering job market trends…",
-                        "Generating a personalized explanation for you…"
+                        "Generating a personalized explanation for you…",
                       ]}
                       intervalMs={1600}
                     />
@@ -345,11 +377,17 @@ const RecommendationDetails = () => {
                 ) : recommendation.explanation ? (
                   <div className="mt-2">
                     <span className="font-medium">Explanation:</span>
-                    <p className="text-muted-foreground mt-1">{recommendation.explanation}</p>
+                    <p className="text-muted-foreground mt-1">
+                      {recommendation.explanation}
+                    </p>
                   </div>
                 ) : (
                   <div className="mt-2">
-                    <Button variant="outline" size="sm" onClick={handleGenerateExplanation}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateExplanation}
+                    >
                       <Sparkles className="h-4 w-4" />
                       Generate Explanation
                     </Button>
@@ -374,9 +412,14 @@ const RecommendationDetails = () => {
                 {industries.length > 0 ? (
                   <div className="space-y-2">
                     {industries.map((industry, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
                         <TrendingUp className="h-4 w-4 text-primary" />
-                        <span className="text-sm">{industry.industry_name}</span>
+                        <span className="text-sm">
+                          {industry.industry_name}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -402,10 +445,15 @@ const RecommendationDetails = () => {
                 <CardContent>
                   <div className="space-y-3">
                     {requirements.map((req, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      >
                         <div className="flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-primary" />
-                          <span className="font-medium">{req.subjects?.subject_name}</span>
+                          <span className="font-medium">
+                            {req.subjects?.subject_name}
+                          </span>
                         </div>
                         {req.requirement_detail && (
                           <span className="text-sm text-muted-foreground">
