@@ -117,7 +117,7 @@ class ContentBasedFiltering:
             industry_embedding_matrix = np.zeros((0, 384))
         return subject_df, industry_embedding_matrix, program_id_map
 
-    def recommend(self, user, degree_programs: list[DegreeProgram], top_n: int = 10, db=None) -> list[Recommendation]:
+    def recommend(self, user, degree_programs: list[DegreeProgram], top_n: int = 10, db=None, weights: dict = None) -> list[Recommendation]:
         """
         Generates personalized degree recommendations for a given user.
         Args:
@@ -152,8 +152,13 @@ class ContentBasedFiltering:
         user_interest_vec_reshaped = user_interest_vec.reshape(1, -1)
         semantic_sim = cosine_similarity(user_interest_vec_reshaped, industry_embedding_matrix)[0]
 
-        # 5. Combine similarities with weights
-        combined_sim = 0.3 * subject_sim + 0.7 * semantic_sim
+        # 5. Combine similarities with weights from DB
+        subject_weight = 0.3
+        semantic_weight = 0.7
+        if weights:
+            subject_weight = weights.get('subject_similarity_weight', 0.3)
+            semantic_weight = weights.get('semantic_similarity_weight', 0.7)
+        combined_sim = subject_weight * subject_sim + semantic_weight * semantic_sim
         sim_scores = list(enumerate(combined_sim))
 
         # 6. Sort programs based on combined similarity scores
@@ -163,6 +168,8 @@ class ContentBasedFiltering:
         # 7. Format and return the results
         recommendations = []
         idx_to_program_id = {v: k for k, v in program_id_map.items()}
+        algorithm_source = weights["algorithm_id"]
+        print(f"Algorithm Source ID: {algorithm_source}")
         for index in top_program_indices:
             program_id = idx_to_program_id[index]
             program = next((p for p in eligible_programs if getattr(p, "program_id", None) == program_id), None)
@@ -176,7 +183,8 @@ class ContentBasedFiltering:
                     market_score=0.0,
                     explanation=None,
                     created_at=datetime.now(),
-                    liked=False
+                    liked=False,
+                    algorithm_source=algorithm_source  # <-- ensure this is valid!
                 )
                 rec.degree_program = program
                 recommendations.append(rec)

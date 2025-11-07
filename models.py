@@ -40,6 +40,7 @@ class RecommendationBase(BaseModel):
     explanation: Optional[str] = None
     created_at: Optional[datetime] = None
     liked: Optional[bool] = False
+    algorithm_source: Optional[uuid.UUID] = None
 
 
 class RecommendationCreate(RecommendationBase):
@@ -50,12 +51,14 @@ class RecommendationCreate(RecommendationBase):
     explanation: Optional[str] = None
     created_at: Optional[datetime] = None
     liked: Optional[bool] = False
+    algorithm_source: Optional[uuid.UUID] = None
 
 
 class Recommendation(RecommendationBase):
     recommendation_id: uuid.UUID
     user_id: uuid.UUID
     degree_program: Optional[DegreeProgram] = None
+    algorithm_source: Optional[uuid.UUID] = None
     class Config:
         from_attributes = True
 

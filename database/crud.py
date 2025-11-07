@@ -1,6 +1,9 @@
 from sqlalchemy.orm import Session
 import database.schemas as schema, models
 import uuid
+import datetime
+from sqlalchemy import desc
+from database.schemas import RecommendationWeights
 
 # User CRUD
 def get_user(db: Session, user_id: str):
@@ -8,7 +11,6 @@ def get_user(db: Session, user_id: str):
 
 # CategoryConfidence CRUD
 def save_category_confidence(db: Session, user_id: str, predicted_category: str, prediction_confidence: float):
-    import datetime
     category_conf = schema.CategoryConfidence(
         prediction_id=str(uuid.uuid4()),
         created_at=datetime.datetime.now(),
@@ -44,7 +46,8 @@ def create_recommendation(db: Session, recommendation: models.RecommendationCrea
         market_score=recommendation.market_score,
         explanation=getattr(recommendation, "explanation", None),
         created_at=getattr(recommendation, "created_at", datetime.datetime.now()),
-        liked=getattr(recommendation, "liked", False)
+        liked=getattr(recommendation, "liked", False),
+        algorithm_source=getattr(recommendation, "algorithm_source", None)
     )
     db.add(db_recommendation)
     db.commit()
@@ -142,3 +145,32 @@ def save_embedding(db: Session, table: str, row_id: str, embedding: str, seconda
     db.commit()
     db.refresh(instance)
     return instance
+
+# --- Recommendation Weights ---
+def get_current_recommendation_weights(db):
+    """
+    Fetch the current (latest) recommendation weights from the recommendation_weights table.
+    Returns a dict with all weights and the algorithm_id.
+    """
+    # Try to get the row where current=True, else get the latest by created_at
+    weights = db.query(RecommendationWeights).filter_by(current=True).order_by(desc(RecommendationWeights.created_at)).first()
+    if not weights:
+        weights = db.query(RecommendationWeights).order_by(desc(RecommendationWeights.created_at)).first()
+    if not weights:
+        # Fallback to defaults if table is empty
+        return {
+            'algorithm_id': None,
+            'subject_similarity_weight': 0.3,
+            'semantic_similarity_weight': 0.7,
+            'confidence_score_weight': 0.65,
+            'market_score_weight': 0.3,
+            'category_rank_weight': 0.05
+        }
+    return {
+        'algorithm_id': weights.algorithm_id,
+        'subject_similarity_weight': weights.subject_similarity_weight,
+        'semantic_similarity_weight': weights.semantic_similarity_weight,
+        'confidence_score_weight': weights.confidence_score_weight,
+        'market_score_weight': weights.market_score_weight,
+        'category_rank_weight': weights.category_rank_weight
+    }

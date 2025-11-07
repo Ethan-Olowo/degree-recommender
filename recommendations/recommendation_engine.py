@@ -4,8 +4,7 @@ from recommendations.peer_clustering import PeerClustering
 from recommendations.explanation_generator import ExplanationGenerator
 from models import DegreeProgram, Recommendation, User
 from database.schemas import AcademicData, SubjectGrade, Subject, DegreeIndustry, Industry, SubjectRequirement
-from database.crud import save_category_confidence, get_subjects, get_degree_programs, get_industries
-
+from database.crud import save_category_confidence, get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights
 
 class RecommendationEngine:
     """
@@ -51,30 +50,34 @@ class RecommendationEngine:
             for cat in category_preds:
                 save_category_confidence(db, str(user.user_id), cat['category'], cat['score'])
 
-        if(self.degree_programs == []):
+        if self.degree_programs == []:
             if db is not None:
                 self.degree_programs = get_degree_programs(db)
-        if(self.subjects == []):
+        if self.subjects == []:
             if db is not None:
                 self.subjects = get_subjects(db)
-        if(self.industries == []):
+        if self.industries == []:
             if db is not None:
                 self.industries = get_industries(db)
 
         self.content_based_filtering = ContentBasedFiltering(subjects=self.subjects, industries=self.industries)
 
+        # --- Fetch weights from DB ---
+        weights = get_current_recommendation_weights(db) if db is not None else None
+        print(weights["algorithm_id"] if weights else "No weights found")
+        
         recommendations: list[Recommendation] = []
         filtered_programs = self.filter_programs([cat['category'] for cat in self.categories])
-        recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs, db=db))
+        recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs, db=db, weights=weights))
 
         if len(recommendations) < 10:
             recommendations = []
-            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=self.degree_programs, db=db))
+            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=self.degree_programs, db=db, weights=weights))
 
         for recommendation in recommendations:
             recommendation.market_score = self.market_trend_analyzer.calculate_market_score(recommendation.degree_program)
 
-        recommendations = self.rank_recommendations(recommendations)
+        recommendations = self.rank_recommendations(recommendations, weights=weights)
         recommendations = recommendations[0:5]  # Limit to top 5 recommendations
         return recommendations
 
@@ -92,20 +95,29 @@ class RecommendationEngine:
         """
         return [program for program in self.degree_programs if program.category in categories]
     
-    def rank_recommendations(self, recommendations: list[Recommendation]) -> list[Recommendation]:
+    def rank_recommendations(self, recommendations: list[Recommendation], weights: dict = None) -> list[Recommendation]:
         """
-        Ranks recommendations based on a weighted score of confidence and market scores.
+        Ranks recommendations based on a weighted score of confidence and market scores, using weights from DB.
         """
         # Calculate category ranks (position in the array) for each recommendation
         category_ranks = {cat['category']: idx for idx, cat in enumerate(self.categories)}
+
+        # Default weights
+        confidence_score_weight = 0.65
+        market_score_weight = 0.3
+        category_rank_weight = 0.05
+        if weights:
+            confidence_score_weight = weights.get('confidence_score_weight', 0.65)
+            market_score_weight = weights.get('market_score_weight', 0.3)
+            category_rank_weight = weights.get('category_rank_weight', 0.05)
 
         weighted_scores = []
         for idx, rec in enumerate(recommendations):
             category_rank = category_ranks.get(rec.degree_program.category, 4)  # Default to last rank if not found
             score = (
-                0.65 * rec.confidence_score +
-                0.3 * rec.market_score +
-                0.05 * (1 - category_rank / 4)  # Higher rank gets higher score
+                confidence_score_weight * rec.confidence_score +
+                market_score_weight * rec.market_score +
+                category_rank_weight * (1 - category_rank / 4)  # Higher rank gets higher score
             )
             weighted_scores.append((score, rec))
 

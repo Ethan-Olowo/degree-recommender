@@ -1,3 +1,4 @@
+from sqlalchemy import desc
 from sqlalchemy import Column, String, Float, Boolean, ForeignKey, Text, Date, TIMESTAMP, VARCHAR
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -134,6 +135,7 @@ class Recommendation(Base):
     market_score = Column(Float)
     created_at = Column(TIMESTAMP, nullable=False)
     liked = Column(Boolean, default=False, nullable=False)
+    algorithm_source = Column(UUID(as_uuid=True), ForeignKey("recommendation_weights.algorithm_id"), nullable=False, default="")
     user = relationship("User", back_populates="recommendations")
     degree_program = relationship("DegreeProgram", back_populates="recommendations")
 
@@ -142,3 +144,15 @@ class Report(Base):
     report_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     generated_at = Column(TIMESTAMP, default="now()")
     recommendation_stats = Column(Text)
+    
+# --- Recommendation Weights Table ---
+class RecommendationWeights(Base):
+    __tablename__ = "recommendation_weights"
+    algorithm_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subject_similarity_weight = Column(Float, nullable=False, default=0.3)
+    semantic_similarity_weight = Column(Float, nullable=False, default=0.7)
+    confidence_score_weight = Column(Float, nullable=False, default=0.65)
+    market_score_weight = Column(Float, nullable=False, default=0.3)
+    category_rank_weight = Column(Float, nullable=False, default=0.05)
+    created_at = Column(TIMESTAMP, nullable=False)
+    current = Column(Boolean, nullable=False, default=False)
