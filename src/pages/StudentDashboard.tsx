@@ -25,6 +25,8 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { FloatingChat } from "@/components/FloatingChat";
+import { CyclingLoader } from "@/components/CyclingLoader";
+import { toast } from "@/hooks/use-toast";
 
 interface Recommendation {
   recommendation_id: string;
@@ -53,6 +55,7 @@ const StudentDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [studentName, setStudentName] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -174,6 +177,55 @@ const StudentDashboard = () => {
     return "text-muted-foreground";
   };
 
+  const handleGenerateRecommendations = async () => {
+    if (!user?.id) return;
+    
+    setIsGenerating(true);
+    try {
+      const response = await fetch(`http://0.0.0.0:8000/users/${user.id}/recommendations/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate recommendations');
+      }
+
+      const data = await response.json();
+      
+      // Transform the API response to match our component's interface
+      const transformedRecs = data.map((rec: any) => ({
+        recommendation_id: rec.recommendation_id,
+        program_id: rec.program_id,
+        confidence_score: rec.confidence_score,
+        market_score: rec.market_score,
+        explanation: rec.explanation,
+        degree_programs: {
+          program_name: rec.degree_program.program_name,
+          program_type: rec.degree_program.program_type,
+          description: rec.degree_program.description,
+        }
+      }));
+
+      setRecommendations(transformedRecs);
+      toast({
+        title: "Success!",
+        description: "Your personalized recommendations have been generated.",
+      });
+    } catch (error) {
+      console.error('Error generating recommendations:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <ProtectedRoute>
       <Layout>
@@ -292,12 +344,26 @@ const StudentDashboard = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Your Top Recommendations</h2>
-              <Link to="/explore">
-                <Button variant="outline">
-                  <BookOpen className="h-4 w-4" />
-                  Explore All Degrees
+              {profileData?.academic_data && recommendations.length > 0 && (
+                <Button variant="outline" onClick={handleGenerateRecommendations} disabled={isGenerating}>
+                  <Sparkles className="h-4 w-4" />
+                  Regenerate Recommendations
                 </Button>
-              </Link>
+              )}
+              {profileData?.academic_data && recommendations.length === 0 && !isGenerating && (
+                <Button variant="gradient" onClick={handleGenerateRecommendations}>
+                  <Sparkles className="h-4 w-4" />
+                  Generate Recommendations
+                </Button>
+              )}
+              {!profileData?.academic_data && (
+                <Link to="/explore">
+                  <Button variant="outline">
+                    <BookOpen className="h-4 w-4" />
+                    Explore All Degrees
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {isLoading ? (
@@ -314,6 +380,21 @@ const StudentDashboard = () => {
                   </Card>
                 ))}
               </div>
+            ) : isGenerating ? (
+              <Card className="glass">
+                <CardContent className="p-12">
+                  <CyclingLoader
+                    phrases={[
+                      "Analyzing your academic profile…",
+                      "Reviewing current job market data…",
+                      "Matching your strengths with degree programs…",
+                      "Evaluating compatibility with industry trends…",
+                      "Generating personalized degree recommendations…"
+                    ]}
+                    intervalMs={1800}
+                  />
+                </CardContent>
+              </Card>
             ) : recommendations.length > 0 ? (
               <>
                 {/* Top Recommendation Full Width */}

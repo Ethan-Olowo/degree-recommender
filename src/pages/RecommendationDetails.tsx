@@ -9,6 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { GraduationCap, ArrowLeft, Sparkles, BookOpen, TrendingUp, CheckCircle, GitCompare, Briefcase, Target, Info, Award, Heart, HeartOff } from 'lucide-react';
 // ...existing code...
 import { Skeleton } from '@/components/ui/skeleton';
+import { CyclingLoader } from '@/components/CyclingLoader';
+import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Recommendation {
   recommendation_id: string;
@@ -39,17 +42,14 @@ interface SubjectRequirement {
   requirement_detail: string | null;
 }
 
-  const handleGenerateExplanation = async () => {
-    // TODO: Implement explanation generation logic
-  };
-
-
 const RecommendationDetails = () => {
   const { recommendationId } = useParams<{ recommendationId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [isGeneratingExplanation, setIsGeneratingExplanation] = useState(false);
   const [industries, setIndustries] = useState<Industry[]>([]);
   const [requirements, setRequirements] = useState<SubjectRequirement[]>([]);
 
@@ -65,10 +65,53 @@ const RecommendationDetails = () => {
         setRecommendation({ ...recommendation, liked: !recommendation.liked });
       }
     } catch (e) {
-      // Optionally show error toast
       console.error('Error updating like:', e);
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  const handleGenerateExplanation = async () => {
+    if (!user?.id || !recommendationId) return;
+    
+    setIsGeneratingExplanation(true);
+    try {
+      const response = await fetch(
+        `http://0.0.0.0:8000/users/${user.id}/recommendations/${recommendationId}/explanation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to generate explanation');
+      }
+
+      const data = await response.json();
+      
+      if (recommendation) {
+        setRecommendation({
+          ...recommendation,
+          explanation: data.explanation,
+        });
+      }
+
+      toast({
+        title: "Success!",
+        description: "Explanation has been generated.",
+      });
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingExplanation(false);
     }
   };
 
@@ -287,7 +330,19 @@ const RecommendationDetails = () => {
                   <span className="font-medium">Market Score:</span>
                   <span>{marketPercent}%</span>
                 </div>
-                {recommendation.explanation ? (
+                {isGeneratingExplanation ? (
+                  <div className="mt-4 p-6 bg-muted/50 rounded-lg">
+                    <CyclingLoader
+                      phrases={[
+                        "Examining your interests and strengths…",
+                        "Comparing program requirements with your profile…",
+                        "Considering job market trends…",
+                        "Generating a personalized explanation for you…"
+                      ]}
+                      intervalMs={1600}
+                    />
+                  </div>
+                ) : recommendation.explanation ? (
                   <div className="mt-2">
                     <span className="font-medium">Explanation:</span>
                     <p className="text-muted-foreground mt-1">{recommendation.explanation}</p>
@@ -295,6 +350,7 @@ const RecommendationDetails = () => {
                 ) : (
                   <div className="mt-2">
                     <Button variant="outline" size="sm" onClick={handleGenerateExplanation}>
+                      <Sparkles className="h-4 w-4" />
                       Generate Explanation
                     </Button>
                   </div>
