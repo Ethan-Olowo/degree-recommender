@@ -6,26 +6,27 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
-import StudentDashboard from "./pages/StudentDashboard";
-import ExploreDegrees from "./pages/ExploreDegrees";
-import DegreeDetails from "./pages/DegreeDetails";
-import ComparePrograms from "./pages/ComparePrograms";
-import ProfileCreate from "./pages/ProfileCreate";
-import Profile from "./pages/Profile";
-import AdminDashboard from "./pages/AdminDashboard";
+import StudentDashboard from "./pages/Student/StudentDashboard";
+import ExploreDegrees from "./pages/Student/ExploreDegrees";
+import DegreeDetails from "./pages/Student/DegreeDetails";
+import ComparePrograms from "./pages/Student/ComparePrograms";
+import ProfileCreate from "./pages/Student/ProfileCreate";
+import Profile from "./pages/Student/Profile";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
 import { useContext } from "react";
 import { AuthContext } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/AuthContext";
-import ManageDegrees from "./pages/ManageDegrees";
-import EditDegree from "./pages/EditDegree";
+import ManageDegrees from "./pages/Admin/ManageDegrees";
+import EditDegree from "./pages/Admin/EditDegree";
 import NotFound from "./pages/NotFound";
-import RecommendationDetails from "./pages/RecommendationDetails";
-import RecommendationsAlgorithmsReports from "./pages/RecommendationsAlgorithmsReports";
-import DegreesIndustriesReports from "./pages/DegreesIndustriesReports";
-import UsersDemographicsReports from "./pages/UsersDemographicsReports";
-import ManageSubjects from "./pages/ManageSubjects";
-import ManageIndustries from "./pages/ManageIndustries";
-import ManageAlgorithms from "./pages/ManageAlgorithms";
+import RecommendationDetails from "./pages/Student/RecommendationDetails";
+import RecommendationsAlgorithmsReports from "./pages/Admin/RecommendationsAlgorithmsReports";
+import MarketInsightsReports from "./pages/Admin/MarketInsightsReports";
+import DegreesIndustriesReports from "./pages/Admin/DegreesIndustriesReports";
+import UsersDemographicsReports from "./pages/Admin/UsersDemographicsReports";
+import ManageSubjects from "./pages/Admin/ManageSubjects";
+import ManageIndustries from "./pages/Admin/ManageIndustries";
+import ManageAlgorithms from "./pages/Admin/ManageAlgorithms";
 
 const queryClient = new QueryClient();
 
@@ -51,9 +52,10 @@ const AppRoutes = () => {
       <Route path="/admin/subjects" element={<ManageSubjects />} />
       <Route path="/admin/industries" element={<ManageIndustries />} />
       <Route path="/admin/algorithms" element={<ManageAlgorithms />} />
-      <Route path="/admin/reports/recommendations" element={<RecommendationsAlgorithmsReports />} />
-      <Route path="/admin/reports/degrees" element={<DegreesIndustriesReports />} />
-      <Route path="/admin/reports/users" element={<UsersDemographicsReports />} />
+  <Route path="/admin/reports/recommendations" element={<RecommendationsAlgorithmsReports />} />
+  <Route path="/admin/reports/market" element={<MarketInsightsReports />} />
+  <Route path="/admin/reports/degrees" element={<DegreesIndustriesReports />} />
+  <Route path="/admin/reports/users" element={<UsersDemographicsReports />} />
 
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
