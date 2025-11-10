@@ -17,7 +17,6 @@ import { useContext } from "react";
 import { AuthContext } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/AuthContext";
 import ManageDegrees from "./pages/Admin/ManageDegrees";
-import EditDegree from "./pages/Admin/EditDegree";
 import NotFound from "./pages/NotFound";
 import RecommendationDetails from "./pages/Student/RecommendationDetails";
 import RecommendationsAlgorithmsReports from "./pages/Admin/RecommendationsAlgorithmsReports";
@@ -48,7 +47,6 @@ const AppRoutes = () => {
       <Route path="/recommendation/:recommendationId" element={<RecommendationDetails />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/degrees" element={<ManageDegrees />} />
-      <Route path="/admin/degrees/edit/:programId" element={<EditDegree />} />
       <Route path="/admin/subjects" element={<ManageSubjects />} />
       <Route path="/admin/industries" element={<ManageIndustries />} />
       <Route path="/admin/algorithms" element={<ManageAlgorithms />} />

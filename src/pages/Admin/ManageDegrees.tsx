@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, GraduationCap, CircleAlert as AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { EditDegreeDialog } from '@/components/EditDegreeDialog';
 
 type DegreeProgram = Tables<'degree_programs'> & {
   industries: string[];
@@ -20,11 +20,12 @@ type Industry = Tables<'industries'>;
 type Subject = Tables<'subjects'>;
 
 const ManageDegrees = () => {
-  const navigate = useNavigate();
   const [degrees, setDegrees] = useState<DegreeProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [degreeToDelete, setDegreeToDelete] = useState<DegreeProgram | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -65,11 +66,13 @@ const ManageDegrees = () => {
   };
 
   const handleCreate = () => {
-    navigate('/admin/degrees/edit/new');
+    setSelectedProgramId('new');
+    setEditDialogOpen(true);
   };
 
   const handleEdit = (programId: string) => {
-    navigate(`/admin/degrees/edit/${programId}`);
+    setSelectedProgramId(programId);
+    setEditDialogOpen(true);
   };
 
   const handleDelete = (degree: DegreeProgram) => {
@@ -253,6 +256,13 @@ const ManageDegrees = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <EditDegreeDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          programId={selectedProgramId}
+          onSuccess={fetchAllData}
+        />
       </Layout>
     </ProtectedRoute>
   );
