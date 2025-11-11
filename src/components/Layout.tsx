@@ -17,6 +17,7 @@ import {
   Sliders,
   Building2
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -43,7 +44,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="text-xl font-bold gradient-text">EduAdvisor</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-4">
             {user ? (
               <>
                 <Link
@@ -195,6 +196,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     })()}
                   </>
                 )}
+                <ThemeToggle />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -213,6 +215,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Link to="/auth">
                   <Button variant="gradient">Get Started</Button>
                 </Link>
+                <ThemeToggle />
               </>
             )}
           </nav>
