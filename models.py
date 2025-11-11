@@ -1,3 +1,15 @@
+# --- Market Indicator Models ---
+from pydantic import BaseModel
+
+class MarketIndicatorRequest(BaseModel):
+    years: list[int]
+    country_codes: list[str]
+
+class MarketIndicatorValueResponse(BaseModel):
+    indicator_name: str
+    country_code: str
+    value: float
+    year: int
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
@@ -18,7 +30,7 @@ class SubjectRequirement(BaseModel):
 # Degree Program
 class DegreeProgramBase(BaseModel):
     program_name: str
-    program_type: Optional[str] = "Undergraduate"
+    program_type: str = "Undergraduate"
     description: Optional[str] = None
     minimum_gpa: Optional[float] = None
     category: Optional[str] = None

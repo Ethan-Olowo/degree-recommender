@@ -1,9 +1,11 @@
+
 from sqlalchemy.orm import Session
 import database.schemas as schema, models
 import uuid
 import datetime
 from sqlalchemy import desc
 from database.schemas import RecommendationWeights
+import datetime
 
 # User CRUD
 def get_user(db: Session, user_id: str):
@@ -174,3 +176,72 @@ def get_current_recommendation_weights(db):
         'market_score_weight': weights.market_score_weight,
         'category_rank_weight': weights.category_rank_weight
     }
+
+# market indicator value CRUD
+def get_market_indicator_values(
+    db: Session,
+    country_code: str = None,
+    years: list[int] = None,
+    indicator_names: list = None
+):
+    """
+    Retrieve market indicator values from the database for a given country and year.
+
+    Parameters:
+        db (Session): SQLAlchemy database session.
+        country_code (str, optional): Country code to filter market indicators. If None, fetches global indicators.
+        year (datetime, optional): Minimum last_updated date for indicators. Defaults to January 1st of last year.
+        indicator_names (list, optional): List of indicator names to filter. If None, fetches all indicators.
+    Returns:
+        list: List of MarketIndicatorValue objects matching the criteria.
+    """
+    if years is None:
+        years = [(datetime.datetime.now().year - 1)]
+    
+    query = db.query(schema.MarketIndicatorValue)
+    indicators = []
+    
+    if country_code:
+        country_query = db.query(schema.MarketIndicatorValue).filter(
+            schema.MarketIndicatorValue.country_code == country_code,
+            schema.MarketIndicatorValue.last_updated.in_([datetime.date(y, 12, 31) for y in years]),        
+            schema.MarketIndicatorValue.indicator_type.has(schema.IndicatorType.indicator_name.in_(indicator_names)) if indicator_names else True
+        )
+        indicators.extend(country_query.all())
+    
+    global_query = db.query(schema.MarketIndicatorValue).filter(
+        schema.MarketIndicatorValue.country_code.is_(None),
+        schema.MarketIndicatorValue.last_updated.in_([datetime.date(y, 12, 31) for y in years]),
+        schema.MarketIndicatorValue.indicator_type.has(schema.IndicatorType.indicator_name.in_(indicator_names)) if indicator_names else True
+    )
+    indicators.extend(global_query.all())
+    return indicators
+
+
+def save_market_indicator_values(db, fetched, found_set):
+    for point in fetched:
+        tup = (point['indicator_name'], point['year'], point['country_code'])
+        if tup in found_set:
+            continue
+        indicator_type = db.query(schema.IndicatorType).filter(schema.IndicatorType.indicator_name == point['indicator_name']).first()
+        if not indicator_type:
+            indicator_type = schema.IndicatorType(indicator_name=point['indicator_name'], description="", unit="")
+            db.add(indicator_type)
+            db.commit()
+            db.refresh(indicator_type)
+        country = db.query(schema.Country).filter(schema.Country.country_code == point['country_code']).first()
+        if not country:
+            country = schema.Country(country_code=point['country_code'], country_name=point['country_name'])
+            db.add(country)
+            db.commit()
+            db.refresh(country)
+        value = schema.MarketIndicatorValue(
+            indicator_type_id=indicator_type.indicator_type_id,
+            value=point['value'],
+            last_updated=datetime.date(point['year'], 12, 31),
+            country_code=point['country_code'],
+            industry_id=None
+        )
+        db.add(value)
+        db.commit()
+        db.refresh(value)

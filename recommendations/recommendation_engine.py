@@ -3,8 +3,8 @@ from recommendations.market_trend_analyzer import MarketTrendAnalyzer
 from recommendations.peer_clustering import PeerClustering
 from recommendations.explanation_generator import ExplanationGenerator
 from models import DegreeProgram, Recommendation, User
-from database.schemas import AcademicData, SubjectGrade, Subject, DegreeIndustry, Industry, SubjectRequirement
-from database.crud import save_category_confidence, get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights
+from database.schemas import AcademicData, MarketIndicatorValue, SubjectGrade, Subject, DegreeIndustry, Industry, SubjectRequirement
+from database.crud import save_category_confidence, get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values
 
 class RecommendationEngine:
     """
@@ -19,20 +19,22 @@ class RecommendationEngine:
     subjects: list[Subject]
     industries: list[Industry]
     categories: list[dict]
+    indicators: list[MarketIndicatorValue]
 
     def __init__(self, db=None):
         """
         Optionally pass a db session to load subjects, degree_programs, and industries from the database.
         """
         self.explanation_generator = ExplanationGenerator()
-        self.market_trend_analyzer = MarketTrendAnalyzer()
+        self.market_trend_analyzer = MarketTrendAnalyzer(indicators=[])
         self.peer_clustering = PeerClustering()
         self.categories = []
         self.subjects = []
         self.degree_programs = []
         self.industries = []
+        self.indicators = []
         
-        self.content_based_filtering = ContentBasedFiltering(subjects=self.subjects, industries=self.industries)
+        self.content_based_filtering = ContentBasedFiltering(subjects=[], industries=[])
 
 
 
@@ -40,8 +42,6 @@ class RecommendationEngine:
         """
         Generates a list of Degree Recommendations for the User
         """
-
-
         # Prepare input_tensor from user (implement feature extraction as needed)
         category_preds = self.peer_clustering.recommend(user)
         self.categories = category_preds
@@ -53,14 +53,14 @@ class RecommendationEngine:
         if self.degree_programs == []:
             if db is not None:
                 self.degree_programs = get_degree_programs(db)
-        if self.subjects == []:
-            if db is not None:
-                self.subjects = get_subjects(db)
-        if self.industries == []:
-            if db is not None:
-                self.industries = get_industries(db)
+        if self.subjects == [] and db is not None:
+            self.subjects = get_subjects(db)
+        if self.industries == [] and db is not None:
+            self.industries = get_industries(db)
 
-        self.content_based_filtering = ContentBasedFiltering(subjects=self.subjects, industries=self.industries)
+        # Update attributes instead of reinitializing
+        self.content_based_filtering.all_subjects = self.subjects
+        self.content_based_filtering.all_industries = self.industries
 
         # --- Fetch weights from DB ---
         weights = get_current_recommendation_weights(db) if db is not None else None
@@ -68,12 +68,16 @@ class RecommendationEngine:
         
         recommendations: list[Recommendation] = []
         filtered_programs = self.filter_programs([cat['category'] for cat in self.categories])
-        recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs, db=db, weights=weights))
-
-        if len(recommendations) < 10:
-            recommendations = []
+        
+        if len(filtered_programs) >= 10:
+            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs, db=db, weights=weights))
+        else:
             recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=self.degree_programs, db=db, weights=weights))
 
+        
+        self.indicators = get_market_indicator_values(db, country_code=user.socioeconomic.country_code)
+        self.market_trend_analyzer.indicators = self.indicators
+        
         for recommendation in recommendations:
             recommendation.market_score = self.market_trend_analyzer.calculate_market_score(recommendation.degree_program)
 
