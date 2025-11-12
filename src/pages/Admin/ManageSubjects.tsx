@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, BookOpen, CircleAlert as AlertCircle } from 'lucide-react';
+import { Plus, Trash2, BookOpen, CircleAlert as AlertCircle, Search, ArrowUpDown } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 
@@ -21,6 +21,8 @@ const ManageSubjects = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -102,6 +104,15 @@ const ManageSubjects = () => {
     }
   };
 
+  const filteredSubjects = subjects
+    .filter(subject => 
+      subject.subject_name.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const comparison = a.subject_name.localeCompare(b.subject_name);
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
   return (
     <ProtectedRoute requireAdmin>
       <Layout>
@@ -124,7 +135,7 @@ const ManageSubjects = () => {
                 Subjects
               </CardTitle>
               <CardDescription>
-                {subjects.length} subject{subjects.length !== 1 ? 's' : ''} in total
+                {filteredSubjects.length} of {subjects.length} subject{subjects.length !== 1 ? 's' : ''}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -142,6 +153,15 @@ const ManageSubjects = () => {
                   <Plus className="h-4 w-4" />
                   Add Subject
                 </Button>
+              </div>
+              <div className="relative mb-6">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search subjects..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9"
+                />
               </div>
               {isLoading ? (
                 <div className="space-y-4">
@@ -162,12 +182,20 @@ const ManageSubjects = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Subject Name</TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none"
+                          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Subject Name
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {subjects.map((subject) => (
+                      {filteredSubjects.map((subject) => (
                         <TableRow key={subject.subject_id}>
                           <TableCell className="font-medium">
                             {subject.subject_name}

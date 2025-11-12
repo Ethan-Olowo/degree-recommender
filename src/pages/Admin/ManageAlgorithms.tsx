@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 
@@ -29,6 +30,10 @@ const ManageAlgorithms = () => {
   const [algorithms, setAlgorithms] = useState<Algorithm[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortBy, setSortBy] = useState<'created_at' | 'subject' | 'semantic'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [newWeights, setNewWeights] = useState({
     subject_similarity_weight: 0.3,
     semantic_similarity_weight: 0.7,
@@ -137,6 +142,35 @@ const ManageAlgorithms = () => {
       });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const filteredAlgorithms = algorithms
+    .filter(algo => {
+      const matchesSearch = new Date(algo.created_at).toLocaleDateString().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || 
+        (statusFilter === 'active' && algo.current) ||
+        (statusFilter === 'inactive' && !algo.current);
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'created_at') {
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (sortBy === 'subject') {
+        comparison = a.subject_similarity_weight - b.subject_similarity_weight;
+      } else if (sortBy === 'semantic') {
+        comparison = a.semantic_similarity_weight - b.semantic_similarity_weight;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+  const handleSort = (column: typeof sortBy) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
     }
   };
 
@@ -272,10 +306,45 @@ const ManageAlgorithms = () => {
             <CardHeader>
               <CardTitle>Algorithm History</CardTitle>
               <CardDescription>
-                View all algorithm versions and set which one is active
+                {filteredAlgorithms.length} of {algorithms.length} algorithm{algorithms.length !== 1 ? 's' : ''}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="flex flex-col gap-4 mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by date..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
+                    <SelectTrigger className="w-[180px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(search || statusFilter !== 'all') && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setSearch('');
+                        setStatusFilter('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              </div>
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Loading algorithms...
@@ -290,16 +359,40 @@ const ManageAlgorithms = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Current</TableHead>
-                        <TableHead>Created At</TableHead>
-                        <TableHead>Subject Similarity</TableHead>
-                        <TableHead>Semantic Similarity</TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none"
+                          onClick={() => handleSort('created_at')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Created At
+                            {sortBy === 'created_at' && <ArrowUpDown className="h-4 w-4" />}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none"
+                          onClick={() => handleSort('subject')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Subject Similarity
+                            {sortBy === 'subject' && <ArrowUpDown className="h-4 w-4" />}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none"
+                          onClick={() => handleSort('semantic')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Semantic Similarity
+                            {sortBy === 'semantic' && <ArrowUpDown className="h-4 w-4" />}
+                          </div>
+                        </TableHead>
                         <TableHead>Confidence Score</TableHead>
                         <TableHead>Market Score</TableHead>
                         <TableHead>Category Rank</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {algorithms.map(algo => (
+                      {filteredAlgorithms.map(algo => (
                         <TableRow key={algo.algorithm_id}>
                           <TableCell>
                             <Button

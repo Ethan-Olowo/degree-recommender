@@ -8,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, GraduationCap, CircleAlert as AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, GraduationCap, CircleAlert as AlertCircle, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { EditDegreeDialog } from '@/components/EditDegreeDialog';
 
@@ -120,9 +122,9 @@ const ManageDegrees = () => {
   const filteredDegrees = degrees
     .filter((degree) =>
       degree.program_name.toLowerCase().includes(search.toLowerCase()) &&
-      (categoryFilter ? degree.category === categoryFilter : true) &&
-      (industryFilter ? degree.industries.includes(industryFilter) : true) &&
-      (subjectFilter ? degree.subjects.includes(subjectFilter) : true)
+      (!categoryFilter || categoryFilter === 'all' ? true : degree.category === categoryFilter) &&
+      (!industryFilter || industryFilter === 'all' ? true : degree.industries.includes(industryFilter)) &&
+      (!subjectFilter || subjectFilter === 'all' ? true : degree.subjects.includes(subjectFilter))
     )
     .sort((a, b) => {
       let valA, valB;
@@ -173,45 +175,72 @@ const ManageDegrees = () => {
           </div>
 
           {/* Filter Controls */}
-          <div className="flex flex-wrap gap-4 mb-4">
-            <input
-              type="text"
-              placeholder="Search by name..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="border rounded px-3 py-2 min-w-[180px]"
-            />
-            <select
-              value={categoryFilter}
-              onChange={e => setCategoryFilter(e.target.value)}
-              className="border rounded px-3 py-2"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <select
-              value={industryFilter}
-              onChange={e => setIndustryFilter(e.target.value)}
-              className="border rounded px-3 py-2"
-            >
-              <option value="">All Industries</option>
-              {industries.map(ind => (
-                <option key={ind} value={ind}>{ind}</option>
-              ))}
-            </select>
-            <select
-              value={subjectFilter}
-              onChange={e => setSubjectFilter(e.target.value)}
-              className="border rounded px-3 py-2"
-            >
-              <option value="">All Subjects</option>
-              {subjects.map(sub => (
-                <option key={sub} value={sub}>{sub}</option>
-              ))}
-            </select>
-          </div>
+          <Card className="glass">
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search degree programs..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={industryFilter} onValueChange={setIndustryFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="All Industries" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Industries</SelectItem>
+                      {industries.map(ind => (
+                        <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="All Subjects" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Subjects</SelectItem>
+                      {subjects.map(sub => (
+                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(search || categoryFilter || industryFilter || subjectFilter) && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setSearch('');
+                        setCategoryFilter('');
+                        setIndustryFilter('');
+                        setSubjectFilter('');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <Card className="glass">
             <CardHeader>

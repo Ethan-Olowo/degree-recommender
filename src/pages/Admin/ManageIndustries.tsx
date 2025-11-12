@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Building2, CircleAlert as AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Building2, CircleAlert as AlertCircle, Search, ArrowUpDown } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 
@@ -20,6 +20,8 @@ const ManageIndustries = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [industryToDelete, setIndustryToDelete] = useState<Industry | null>(null);
   const [newIndustryName, setNewIndustryName] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -101,6 +103,15 @@ const ManageIndustries = () => {
     }
   };
 
+  const filteredIndustries = industries
+    .filter(industry => 
+      industry.industry_name.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const comparison = a.industry_name.localeCompare(b.industry_name);
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
   return (
     <ProtectedRoute requireAdmin>
       <Layout>
@@ -123,7 +134,7 @@ const ManageIndustries = () => {
                 Industries
               </CardTitle>
               <CardDescription>
-                {industries.length} industry{industries.length !== 1 ? 'ies' : 'y'} in total
+                {filteredIndustries.length} of {industries.length} industr{industries.length !== 1 ? 'ies' : 'y'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -141,6 +152,15 @@ const ManageIndustries = () => {
                   <Plus className="h-4 w-4" />
                   Add Industry
                 </Button>
+              </div>
+              <div className="relative mb-6">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search industries..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9"
+                />
               </div>
               {isLoading ? (
                 <div className="space-y-4">
@@ -161,12 +181,20 @@ const ManageIndustries = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Industry Name</TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none"
+                          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Industry Name
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {industries.map((industry) => (
+                      {filteredIndustries.map((industry) => (
                         <TableRow key={industry.industry_id}>
                           <TableCell className="font-medium">
                             {industry.industry_name}
