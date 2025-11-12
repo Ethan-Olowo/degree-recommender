@@ -276,25 +276,34 @@ const ManageDegrees = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead
+                        <TableHead 
                           className="cursor-pointer select-none"
                           onClick={() => handleSort('program_name')}
                         >
-                          Program Name {sortBy === 'program_name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                          <div className="flex items-center gap-2">
+                            Program Name
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
                         </TableHead>
-                        <TableHead
+                        <TableHead 
                           className="cursor-pointer select-none"
                           onClick={() => handleSort('category')}
                         >
-                          Category {sortBy === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
+                          <div className="flex items-center gap-2">
+                            Category
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
                         </TableHead>
                         <TableHead>Industries</TableHead>
                         <TableHead>Subjects</TableHead>
-                        <TableHead
+                        <TableHead 
                           className="cursor-pointer select-none"
                           onClick={() => handleSort('minimum_gpa')}
                         >
-                          Min GPA {sortBy === 'minimum_gpa' && (sortOrder === 'asc' ? '▲' : '▼')}
+                          <div className="flex items-center gap-2">
+                            Min GPA
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
                         </TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
