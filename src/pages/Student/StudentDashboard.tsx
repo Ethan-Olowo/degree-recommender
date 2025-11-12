@@ -297,39 +297,6 @@ const StudentDashboard = () => {
                   </CardContent>
                 </Card>
               </Link>
-              {recommendations.length > 0 && (
-                <>
-                  <Card className="glass card-hover">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Top Match Score
-                          </p>
-                          <p className="text-2xl font-bold">
-                            {Math.round((recommendations[0]?.confidence_score || 0) * 100)}%
-                          </p>
-                        </div>
-                        <Award className="h-8 w-8 text-primary" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="glass card-hover">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Market Trend
-                          </p>
-                          <p className="text-2xl font-bold">Rising</p>
-                        </div>
-                        <TrendingUp className="h-8 w-8 text-success" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
             </div>
           )}
 

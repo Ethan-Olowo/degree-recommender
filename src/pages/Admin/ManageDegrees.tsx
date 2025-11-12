@@ -26,6 +26,12 @@ const ManageDegrees = () => {
   const [degreeToDelete, setDegreeToDelete] = useState<DegreeProgram | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [industryFilter, setIndustryFilter] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'program_name'|'category'|'minimum_gpa'>('program_name');
+  const [sortOrder, setSortOrder] = useState<'asc'|'desc'>('asc');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -110,6 +116,43 @@ const ManageDegrees = () => {
     }
   };
 
+  // Filtering and sorting logic
+  const filteredDegrees = degrees
+    .filter((degree) =>
+      degree.program_name.toLowerCase().includes(search.toLowerCase()) &&
+      (categoryFilter ? degree.category === categoryFilter : true) &&
+      (industryFilter ? degree.industries.includes(industryFilter) : true) &&
+      (subjectFilter ? degree.subjects.includes(subjectFilter) : true)
+    )
+    .sort((a, b) => {
+      let valA, valB;
+      if (sortBy === 'minimum_gpa') {
+        valA = a.minimum_gpa ?? 0;
+        valB = b.minimum_gpa ?? 0;
+      } else {
+        valA = a[sortBy]?.toString().toLowerCase();
+        valB = b[sortBy]?.toString().toLowerCase();
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  // Get unique categories, industries, subjects for filter dropdowns
+  const categories = Array.from(new Set(degrees.map(d => d.category).filter(Boolean)));
+  const industries = Array.from(new Set(degrees.flatMap(d => d.industries)));
+  const subjects = Array.from(new Set(degrees.flatMap(d => d.subjects)));
+
+  // Sorting handler
+  const handleSort = (column: typeof sortBy) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
   return (
     <ProtectedRoute requireAdmin>
       <Layout>
@@ -129,6 +172,47 @@ const ManageDegrees = () => {
             </Button>
           </div>
 
+          {/* Filter Controls */}
+          <div className="flex flex-wrap gap-4 mb-4">
+            <input
+              type="text"
+              placeholder="Search by name..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="border rounded px-3 py-2 min-w-[180px]"
+            />
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <select
+              value={industryFilter}
+              onChange={e => setIndustryFilter(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="">All Industries</option>
+              {industries.map(ind => (
+                <option key={ind} value={ind}>{ind}</option>
+              ))}
+            </select>
+            <select
+              value={subjectFilter}
+              onChange={e => setSubjectFilter(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="">All Subjects</option>
+              {subjects.map(sub => (
+                <option key={sub} value={sub}>{sub}</option>
+              ))}
+            </select>
+          </div>
+
           <Card className="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -136,7 +220,7 @@ const ManageDegrees = () => {
                 Degree Programs
               </CardTitle>
               <CardDescription>
-                {degrees.length} degree program{degrees.length !== 1 ? 's' : ''} in total
+                {filteredDegrees.length} degree program{filteredDegrees.length !== 1 ? 's' : ''} in total
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -146,12 +230,12 @@ const ManageDegrees = () => {
                     <div key={i} className="h-16 bg-muted rounded animate-shimmer" />
                   ))}
                 </div>
-              ) : degrees.length === 0 ? (
+              ) : filteredDegrees.length === 0 ? (
                 <div className="text-center py-12">
                   <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No degree programs yet</h3>
+                  <h3 className="text-lg font-semibold mb-2">No degree programs found</h3>
                   <p className="text-muted-foreground mb-4">
-                    Get started by adding your first degree program
+                    Try adjusting your filters or add a new degree program
                   </p>
                   <Button onClick={handleCreate} className="gap-2">
                     <Plus className="h-4 w-4" />
@@ -163,17 +247,32 @@ const ManageDegrees = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Program Name</TableHead>
-                        <TableHead>Category</TableHead>
+                        <TableHead
+                          className="cursor-pointer select-none"
+                          onClick={() => handleSort('program_name')}
+                        >
+                          Program Name {sortBy === 'program_name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer select-none"
+                          onClick={() => handleSort('category')}
+                        >
+                          Category {sortBy === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
+                        </TableHead>
                         <TableHead>Industries</TableHead>
                         <TableHead>Subjects</TableHead>
-                        <TableHead>Min GPA</TableHead>
+                        <TableHead
+                          className="cursor-pointer select-none"
+                          onClick={() => handleSort('minimum_gpa')}
+                        >
+                          Min GPA {sortBy === 'minimum_gpa' && (sortOrder === 'asc' ? '▲' : '▼')}
+                        </TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {degrees.map((degree) => (
+                      {filteredDegrees.map((degree) => (
                         <TableRow
                           key={degree.program_id}
                           onClick={() => handleEdit(degree.program_id)}
