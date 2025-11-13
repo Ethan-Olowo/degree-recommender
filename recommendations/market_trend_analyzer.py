@@ -52,20 +52,24 @@ class MarketTrendAnalyzer:
         if not values:
             return 0.0
         if len(values) == 1:
-            v = values[0]
-            mag = abs(v)
-            if mag < 1:
-                norm = math.copysign(math.log10(mag + 1e-8), v) / 2
-            else:
-                norm = math.copysign(math.log10(mag / 100 + 1e-8), v) / 2
-            norm = max(-0.1, min(norm, 0.1))
-            return norm
+            return self.normalize_sigmoid(values[0])
         else:
             sorted_vals = sorted(values)
             rank = sum(1 for x in sorted_vals if x < value)
             percentile = rank / (len(sorted_vals) - 1) if len(sorted_vals) > 1 else 0.5
             return percentile
-
+        
+    @staticmethod
+    def normalize_sigmoid(value: float, steepness: float = 0.5) -> float:
+        """
+        Scales a value to a [0, 1] range using a sigmoid function.
+        """
+        try:
+            score = 1 / (1 + math.exp(-steepness * value))
+        except OverflowError:
+            score = 0.0 if value < 0 else 1.0
+        return score
+    
     def calculate_market_score(self, degree_program: DegreeProgram) -> float:
         """
         Calculates a market score for a degree program based on normalized indicator values.

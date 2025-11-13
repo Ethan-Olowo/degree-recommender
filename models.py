@@ -34,7 +34,7 @@ class DegreeProgramBase(BaseModel):
     description: Optional[str] = None
     minimum_gpa: Optional[float] = None
     category: Optional[str] = None
-    description_embedding: Optional[List[float]] = None
+    description_embedding: Optional[str] = None
 
 
 class DegreeProgram(DegreeProgramBase):
@@ -46,31 +46,26 @@ class DegreeProgram(DegreeProgramBase):
 
 # Recommendation
 class RecommendationBase(BaseModel):
-    program_id: uuid.UUID
-    confidence_score: float
-    market_score: float
+    program_id: Optional[uuid.UUID] = None
+    confidence_score: Optional[float] = None
+    market_score: Optional[float] = None
     explanation: Optional[str] = None
     created_at: Optional[datetime] = None
     liked: Optional[bool] = False
     algorithm_source: Optional[uuid.UUID] = None
+    semantic_score: Optional[float] = None
+    subject_score: Optional[float] = None
+    peer_score: Optional[float] = None
 
 
 class RecommendationCreate(RecommendationBase):
-    # Explicitly define all fields required for creation
     user_id: uuid.UUID
-    confidence_score: float
-    market_score: float
-    explanation: Optional[str] = None
-    created_at: Optional[datetime] = None
-    liked: Optional[bool] = False
-    algorithm_source: Optional[uuid.UUID] = None
 
 
 class Recommendation(RecommendationBase):
     recommendation_id: uuid.UUID
     user_id: uuid.UUID
     degree_program: Optional[DegreeProgram] = None
-    algorithm_source: Optional[uuid.UUID] = None
     class Config:
         from_attributes = True
 

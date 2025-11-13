@@ -53,29 +53,46 @@ This is the backend for a Degree Recommendation System, built with FastAPI, SQLA
 
 ```
 Degree-Recommender-Backend/
+├── main.py
+├── market.py
+├── models.py
+├── requirements.txt
+├── README.md
+├── __pycache__/
 ├── database/
 │   ├── crud.py
 │   ├── db.py
-│   └── schemas.py
+│   ├── schemas.py
+│   └── __pycache__/
 ├── recommendations/
 │   ├── content_based_filtering.py
 │   ├── explanation_generator.py
+│   ├── grades_helper.py
 │   ├── market_trend_analyzer.py
 │   ├── peer_clustering.py
-│   ├── reccomendation_algorithm.py
-│   ├── reccomendation_fusion.py
-│   └── recommendation_engine.py
-├── models.py
-├── main.py
-├── requirements.txt
-├── .env
-└── .gitignore
+│   ├── recommendation_algorithm.py
+│   ├── recommendation_engine.py
+│   ├── __pycache__/
+│   └── models/
+│       ├── degree_focus_metadata.pt
+│       ├── degree_focus_model.pth
+│       ├── label_encoder.joblib
+│       ├── model_class.py
+│       ├── ordinal_encoder.joblib
+│       ├── scaler.joblib
+│       ├── selected_features.joblib
+│       └── xgb_tuned_model.joblib
+├── tests/
+│   ├── test_grades_helper.py
+│   ├── test_market_trend_analyzer.py
+│   ├── test_peer_clustering.py
+│   └── __pycache__/
 ```
 
 ## Notes
 
 - Passwords are stored in plain text for demonstration; use proper hashing in production.
-- The recommendation algorithms are placeholders and should be implemented for real use.
+- The recommendation algorithms are implemented in the `recommendations/` folder. You may need to adapt them for production use.
 - The OpenAI API is used for generating explanations; ensure your API key is valid.
 
 ## License

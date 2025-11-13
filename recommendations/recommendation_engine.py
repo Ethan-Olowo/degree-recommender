@@ -59,25 +59,39 @@ class RecommendationEngine:
             self.industries = get_industries(db)
 
         # Update attributes instead of reinitializing
-        self.content_based_filtering.all_subjects = self.subjects
-        self.content_based_filtering.all_industries = self.industries
+        self.content_based_filtering.all_subjects = [s.subject_name for s in self.subjects]
+        self.content_based_filtering.all_industries = [i.industry_name for i in self.industries]
 
         # --- Fetch weights from DB ---
         weights = get_current_recommendation_weights(db) if db is not None else None
         print(weights["algorithm_id"] if weights else "No weights found")
-        
+
         recommendations: list[Recommendation] = []
         filtered_programs = self.filter_programs([cat['category'] for cat in self.categories])
-        
-        if len(filtered_programs) >= 10:
-            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=filtered_programs, db=db, weights=weights))
-        else:
-            recommendations.extend(self.content_based_filtering.recommend(user, degree_programs=self.degree_programs, db=db, weights=weights))
 
-        
+        # Compute category ranks for peer_score
+        category_ranks = {cat['category']: idx for idx, cat in enumerate(self.categories)}
+
+        if len(filtered_programs) >= 10:
+            recommendations.extend(self.content_based_filtering.recommend(
+                user,
+                degree_programs=filtered_programs,
+                db=db,
+                weights=weights,
+                category_ranks=category_ranks
+            ))
+        else:
+            recommendations.extend(self.content_based_filtering.recommend(
+                user,
+                degree_programs=self.degree_programs,
+                db=db,
+                weights=weights,
+                category_ranks=category_ranks
+            ))
+
         self.indicators = get_market_indicator_values(db, country_code=user.socioeconomic.country_code)
         self.market_trend_analyzer.indicators = self.indicators
-        
+
         for recommendation in recommendations:
             recommendation.market_score = self.market_trend_analyzer.calculate_market_score(recommendation.degree_program)
 
@@ -117,11 +131,10 @@ class RecommendationEngine:
 
         weighted_scores = []
         for idx, rec in enumerate(recommendations):
-            category_rank = category_ranks.get(rec.degree_program.category, 4)  # Default to last rank if not found
             score = (
                 confidence_score_weight * rec.confidence_score +
                 market_score_weight * rec.market_score +
-                category_rank_weight * (1 - category_rank / 4)  # Higher rank gets higher score
+                category_rank_weight * rec.peer_score # Higher rank gets higher score
             )
             weighted_scores.append((score, rec))
 

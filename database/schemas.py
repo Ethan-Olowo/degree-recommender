@@ -135,7 +135,10 @@ class Recommendation(Base):
     market_score = Column(Float)
     created_at = Column(TIMESTAMP, nullable=False)
     liked = Column(Boolean, default=False, nullable=False)
-    algorithm_source = Column(UUID(as_uuid=True), ForeignKey("recommendation_weights.algorithm_id"), nullable=False, default="")
+    algorithm_source = Column(UUID(as_uuid=True), ForeignKey("recommendation_weights.algorithm_id"), nullable=False, default="f2ce2e02-1975-4567-93eb-0b5f7284a33c")
+    semantic_score = Column(Float)
+    subject_score = Column(Float)
+    peer_score = Column(Float)
     user = relationship("User", back_populates="recommendations")
     degree_program = relationship("DegreeProgram", back_populates="recommendations")
 

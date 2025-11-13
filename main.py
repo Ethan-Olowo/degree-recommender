@@ -94,6 +94,12 @@ def get_recommendations(user_id: str, db: Session = Depends(get_db)):
 
     recommendations_objs = recommendation_engine.generate_recommendations(user, db=db)
 
+    import ast
+    def parse_embedding(embedding):
+        if isinstance(embedding, str):
+            return [float(x) for x in embedding.strip('[]').split(',') if x]
+        return embedding
+
     recommendations = []
     for rec_obj in recommendations_objs:
         # Convert Recommendation object to RecommendationCreate
@@ -105,7 +111,10 @@ def get_recommendations(user_id: str, db: Session = Depends(get_db)):
             explanation=rec_obj.explanation,
             created_at=rec_obj.created_at,
             liked=rec_obj.liked,
-            algorithm_source=rec_obj.algorithm_source
+            algorithm_source=rec_obj.algorithm_source,
+            subject_score=rec_obj.subject_score,
+            semantic_score=rec_obj.semantic_score,
+            peer_score=rec_obj.peer_score
         )
         recommendation = crud.create_recommendation(db=db, recommendation=recommendation_to_create, user_id=user.user_id)
         recommendations.append(recommendation)

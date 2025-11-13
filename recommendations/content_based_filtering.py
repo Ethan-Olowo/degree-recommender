@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from datetime import datetime
 import database.crud as crud
 
 
@@ -38,6 +39,8 @@ class ContentBasedFiltering:
         Returns:
             tuple: (subject_vector, interest_vector)
         """
+        # DEBUG: Print the subjects we are looking for
+        print(f"--- DEBUG: self.all_subjects (first 10): {self.all_subjects[:10]}")
         # Subject grades vector
         subject_grades = {}
         if user.academic_data.subject_grades:
@@ -70,12 +73,12 @@ class ContentBasedFiltering:
 
     def _create_degree_vectors(self, programs: list[DegreeProgram]) -> tuple[pd.DataFrame, np.ndarray, dict]:
         """
-        Creates separate matrices for subject requirements and industries for degree programs.
+        Creates separate matrices for subject requirements and semantic embeddings (industry + description) for degree programs.
         Returns:
-            tuple: (subject_matrix, industry_embedding_matrix, program_id_map)
+            tuple: (subject_matrix, semantic_embedding_matrix, program_id_map)
         """
         subject_data = []
-        industry_embeddings = []
+        semantic_embeddings = []
         program_id_map = {}
         for i, program in enumerate(programs):
             # Subject requirement vector
@@ -83,15 +86,14 @@ class ContentBasedFiltering:
             if program.subject_requirements:
                 for req in program.subject_requirements:
                     if req.subject and hasattr(req.subject, "subject_name"):
-                        requirements[req.subject.subject_name] = 1.0 if req.requirement_detail == "Required" else 0.7
+                        requirements[req.subject.subject_name] = 1.0 if req.requirement_detail == None else normalize_grade(req.requirement_detail)
             subject_vector = [requirements.get(subject, 0.0) for subject in self.all_subjects]
             subject_data.append(subject_vector)
 
-            # Industry embedding vector (average of all industry embeddings for the program)
+            # --- Semantic embedding: combine industry embeddings and description embedding ---
             inds_embeddings = []
             if program.degree_industries:
                 for degree_ind_obj in program.degree_industries:
-                    # degree_ind_obj is DegreeIndustry, get industry object
                     industry_obj = getattr(degree_ind_obj, 'industry', None)
                     if industry_obj:
                         if getattr(industry_obj, 'embedding', None):
@@ -102,22 +104,40 @@ class ContentBasedFiltering:
                             # Save embedding to DB
                             crud.save_embedding(self.db, 'industries', str(industry_obj.industry_id), ','.join(map(str, emb)))
                         inds_embeddings.append(emb)
-            if inds_embeddings:
-                industry_embedding = np.mean(inds_embeddings, axis=0)
+            # Degree description embedding
+            desc_emb = None
+            if getattr(program, 'description_embedding', None):
+                desc_emb_str = program.description_embedding.strip('[]')
+                desc_emb = np.array([float(x) for x in desc_emb_str.split(',')])
             else:
-                industry_embedding = np.zeros(384)
-            industry_embeddings.append(industry_embedding)
+                # Compute and save embedding if not present
+                if getattr(program, 'description', None):
+                    desc_emb = self.embedding_model.encode([program.description])[0]
+                    # Save embedding to DB
+                    crud.save_embedding(self.db, 'degree_programs', str(program.program_id), ','.join(map(str, desc_emb)), secondary_id='description_embedding')
+            # Combine all semantic embeddings (industry + description)
+            all_sem_embs = []
+            if inds_embeddings:
+                all_sem_embs.extend(inds_embeddings)
+            if desc_emb is not None:
+                all_sem_embs.append(desc_emb)
+            if all_sem_embs:
+                semantic_embedding = np.mean(all_sem_embs, axis=0)
+            else:
+                semantic_embedding = np.zeros(384)
+            semantic_embeddings.append(semantic_embedding)
 
             program_id_map[getattr(program, "program_id", None)] = i
 
         subject_df = pd.DataFrame(subject_data, columns=self.all_subjects)
-        if industry_embeddings:
-            industry_embedding_matrix = np.vstack(industry_embeddings)
+        print("Subject DataFrame shape:", subject_df.shape)
+        if semantic_embeddings:
+            semantic_embedding_matrix = np.vstack(semantic_embeddings)
         else:
-            industry_embedding_matrix = np.zeros((0, 384))
-        return subject_df, industry_embedding_matrix, program_id_map
+            semantic_embedding_matrix = np.zeros((0, 384))
+        return subject_df, semantic_embedding_matrix, program_id_map
 
-    def recommend(self, user, degree_programs: list[DegreeProgram], top_n: int = 10, db=None, weights: dict = None) -> list[Recommendation]:
+    def recommend(self, user, degree_programs: list[DegreeProgram], top_n: int = 10, db=None, weights: dict = None, category_ranks: dict = None) -> list[Recommendation]:
         """
         Generates personalized degree recommendations for a given user.
         Args:
@@ -138,9 +158,9 @@ class ContentBasedFiltering:
         self.db = db
         # 3. Create separate vectors for user and programs
         user_subject_vec, user_interest_vec = self._create_user_vectors(user)
-        subject_matrix, industry_embedding_matrix, program_id_map = self._create_degree_vectors(eligible_programs)
+        subject_matrix, semantic_embedding_matrix, program_id_map = self._create_degree_vectors(eligible_programs)
 
-        if subject_matrix.empty or industry_embedding_matrix.shape[0] == 0:
+        if subject_matrix.empty or semantic_embedding_matrix.shape[0] == 0:
             print("Could not create feature vectors for eligible programs.")
             return []
 
@@ -148,9 +168,13 @@ class ContentBasedFiltering:
         user_subject_vec_reshaped = user_subject_vec.reshape(1, -1)
         subject_sim = cosine_similarity(user_subject_vec_reshaped, subject_matrix.values)[0]
 
-        # 4. Calculate semantic similarity (interests vs industries) using embeddings
+        # 4. Calculate semantic similarity (user interests vs [industry+description] embeddings)
         user_interest_vec_reshaped = user_interest_vec.reshape(1, -1)
-        semantic_sim = cosine_similarity(user_interest_vec_reshaped, industry_embedding_matrix)[0]
+        semantic_sim = cosine_similarity(user_interest_vec_reshaped, semantic_embedding_matrix)[0]
+
+        # Normalize to [0,1] assuming max similarity ~0.7
+        semantic_sim = semantic_sim/0.7
+        semantic_sim = np.clip(semantic_sim, 0, 1)
 
         # 5. Combine similarities with weights from DB
         subject_weight = 0.3
@@ -174,7 +198,21 @@ class ContentBasedFiltering:
             program_id = idx_to_program_id[index]
             program = next((p for p in eligible_programs if getattr(p, "program_id", None) == program_id), None)
             if program:
-                from datetime import datetime
+                # Ensure program_type is always a string
+                if getattr(program, "program_type", None) is None:
+                    program.program_type = "Unknown"
+                # Calculate scores for this program
+                subject_score = float(subject_sim[index])
+                semantic_score = float(semantic_sim[index])
+                # Peer score: (1 - category_rank/4), default to 0 if not found
+                peer_score = 0.0
+                if category_ranks and hasattr(program, "category") and program.category in category_ranks:
+                    peer_score = 1 - category_ranks[program.category] / 4
+                
+                print("Subject Score:", subject_score)
+                print("Semantic Score:", semantic_score)
+                print("Peer Score:", peer_score)
+
                 rec = Recommendation(
                     recommendation_id=uuid.uuid4(),
                     user_id=getattr(user, "user_id", None),
@@ -184,7 +222,10 @@ class ContentBasedFiltering:
                     explanation=None,
                     created_at=datetime.now(),
                     liked=False,
-                    algorithm_source=algorithm_source  # <-- ensure this is valid!
+                    algorithm_source=algorithm_source,
+                    subject_score=subject_score,
+                    semantic_score=semantic_score,
+                    peer_score=peer_score
                 )
                 rec.degree_program = program
                 recommendations.append(rec)

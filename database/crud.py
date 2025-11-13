@@ -5,6 +5,7 @@ import uuid
 import datetime
 from sqlalchemy import desc
 from database.schemas import RecommendationWeights
+from sqlalchemy.orm import joinedload
 import datetime
 
 # User CRUD
@@ -49,7 +50,10 @@ def create_recommendation(db: Session, recommendation: models.RecommendationCrea
         explanation=getattr(recommendation, "explanation", None),
         created_at=getattr(recommendation, "created_at", datetime.datetime.now()),
         liked=getattr(recommendation, "liked", False),
-        algorithm_source=getattr(recommendation, "algorithm_source", None)
+        algorithm_source=getattr(recommendation, "algorithm_source", None),
+        subject_score=getattr(recommendation, "subject_score", None),
+        semantic_score=getattr(recommendation, "semantic_score", None),
+        peer_score=getattr(recommendation, "peer_score", None)
     )
     db.add(db_recommendation)
     db.commit()
@@ -198,18 +202,22 @@ def get_market_indicator_values(
     if years is None:
         years = [(datetime.datetime.now().year - 1)]
     
-    query = db.query(schema.MarketIndicatorValue)
     indicators = []
-    
+
+    # Eagerly load relationships to avoid DetachedInstanceError
+    eager_options = [
+        joinedload(schema.MarketIndicatorValue.indicator_type),
+        joinedload(schema.MarketIndicatorValue.industry)
+    ]
+
     if country_code:
-        country_query = db.query(schema.MarketIndicatorValue).filter(
+        country_query = db.query(schema.MarketIndicatorValue).options(*eager_options).filter(
             schema.MarketIndicatorValue.country_code == country_code,
             schema.MarketIndicatorValue.last_updated.in_([datetime.date(y, 12, 31) for y in years]),        
             schema.MarketIndicatorValue.indicator_type.has(schema.IndicatorType.indicator_name.in_(indicator_names)) if indicator_names else True
         )
         indicators.extend(country_query.all())
-    
-    global_query = db.query(schema.MarketIndicatorValue).filter(
+    global_query = db.query(schema.MarketIndicatorValue).options(*eager_options).filter(
         schema.MarketIndicatorValue.country_code.is_(None),
         schema.MarketIndicatorValue.last_updated.in_([datetime.date(y, 12, 31) for y in years]),
         schema.MarketIndicatorValue.indicator_type.has(schema.IndicatorType.indicator_name.in_(indicator_names)) if indicator_names else True
