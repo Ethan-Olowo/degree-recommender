@@ -2,9 +2,10 @@ from recommendations.content_based_filtering import ContentBasedFiltering
 from recommendations.market_trend_analyzer import MarketTrendAnalyzer
 from recommendations.peer_clustering import PeerClustering
 from recommendations.explanation_generator import ExplanationGenerator
-from models import DegreeProgram, Recommendation, User
+from models import DegreeProgram, Recommendation, User, RecommendationCreate
 from database.schemas import AcademicData, MarketIndicatorValue, SubjectGrade, Subject, DegreeIndustry, Industry, SubjectRequirement
-from database.crud import save_category_confidence, get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values
+from database.crud import get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values, save_category_confidences_batch, create_recommendations_batch
+from fastapi import BackgroundTasks
 
 class RecommendationEngine:
     """
@@ -38,17 +39,29 @@ class RecommendationEngine:
 
 
 
-    def generate_recommendations(self, user: User, db=None) -> list[Recommendation]:
+    def generate_recommendations(self, user: User, db=None, background_tasks: BackgroundTasks = None) -> list[Recommendation]:
         """
-        Generates a list of Degree Recommendations for the User
+        Generates a list of Degree Recommendations for the User and persists them in the database.
         """
         # Prepare input_tensor from user (implement feature extraction as needed)
         category_preds = self.peer_clustering.recommend(user)
         self.categories = category_preds
-        # Save category predictions to DB
-        if db is not None:
-            for cat in category_preds:
-                save_category_confidence(db, str(user.user_id), cat['category'], cat['score'])
+        # Save category predictions to DB in batch
+        if db is not None and background_tasks is not None:
+            # Aggregate all confidences and add a single background task
+            confidences = [
+                {'predicted_category': cat['category'], 'prediction_confidence': cat['score']}
+                for cat in category_preds
+            ]
+            if confidences:
+                background_tasks.add_task(save_category_confidences_batch, db, confidences, str(user.user_id))
+        elif db is not None:
+            confidences = [
+                {'predicted_category': cat['category'], 'prediction_confidence': cat['score']}
+                for cat in category_preds
+            ]
+            if confidences:
+                save_category_confidences_batch(db, confidences, str(user.user_id))
 
         if self.degree_programs == []:
             if db is not None:
@@ -97,7 +110,52 @@ class RecommendationEngine:
 
         recommendations = self.rank_recommendations(recommendations, weights=weights)
         recommendations = recommendations[0:5]  # Limit to top 5 recommendations
-        return recommendations
+
+        # Persist recommendations in DB and return DB objects
+        db_recommendations = []
+        if db is not None and background_tasks is not None:
+            # Batch all recommendations and add as a single background task
+            recs_to_create = [
+                RecommendationCreate(
+                    user_id=user.user_id,
+                    program_id=rec_obj.degree_program.program_id,
+                    confidence_score=rec_obj.confidence_score,
+                    market_score=rec_obj.market_score,
+                    explanation=rec_obj.explanation,
+                    created_at=rec_obj.created_at,
+                    liked=rec_obj.liked,
+                    algorithm_source=rec_obj.algorithm_source,
+                    subject_score=rec_obj.subject_score,
+                    semantic_score=rec_obj.semantic_score,
+                    peer_score=rec_obj.peer_score
+                )
+                for rec_obj in recommendations
+            ]
+            if recs_to_create:
+                background_tasks.add_task(create_recommendations_batch, db, recs_to_create, user.user_id)
+            return recommendations
+        elif db is not None:
+            recs_to_create = [
+                RecommendationCreate(
+                    user_id=user.user_id,
+                    program_id=rec_obj.degree_program.program_id,
+                    confidence_score=rec_obj.confidence_score,
+                    market_score=rec_obj.market_score,
+                    explanation=rec_obj.explanation,
+                    created_at=rec_obj.created_at,
+                    liked=rec_obj.liked,
+                    algorithm_source=rec_obj.algorithm_source,
+                    subject_score=rec_obj.subject_score,
+                    semantic_score=rec_obj.semantic_score,
+                    peer_score=rec_obj.peer_score
+                )
+                for rec_obj in recommendations
+            ]
+            if recs_to_create:
+                db_recommendations = create_recommendations_batch(db, recs_to_create, user.user_id)
+            return db_recommendations
+        else:
+            return recommendations
 
 
     def generate_explanation(self, user: User, degree_program: DegreeProgram, recommendation: Recommendation) -> str:

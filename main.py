@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 import database.schemas as schema 
 import database.crud as crud
@@ -84,7 +84,7 @@ def post_market_indicators(request: models.MarketIndicatorRequest, db: Session =
 
 # Recommendations
 @app.get("/users/{user_id}/recommendations/", response_model=list[models.Recommendation], tags=["Recommendations"])
-def get_recommendations(user_id: str, db: Session = Depends(get_db)):
+def get_recommendations(user_id: str, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
     """
     Generate and retrieve degree recommendations for a user.
     """
@@ -92,33 +92,8 @@ def get_recommendations(user_id: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User profile not found. Please create a profile first.")
 
-    recommendations_objs = recommendation_engine.generate_recommendations(user, db=db)
-
-    import ast
-    def parse_embedding(embedding):
-        if isinstance(embedding, str):
-            return [float(x) for x in embedding.strip('[]').split(',') if x]
-        return embedding
-
-    recommendations = []
-    for rec_obj in recommendations_objs:
-        # Convert Recommendation object to RecommendationCreate
-        recommendation_to_create = models.RecommendationCreate(
-            user_id=user.user_id,
-            program_id=rec_obj.degree_program.program_id,
-            confidence_score=rec_obj.confidence_score,
-            market_score=rec_obj.market_score,
-            explanation=rec_obj.explanation,
-            created_at=rec_obj.created_at,
-            liked=rec_obj.liked,
-            algorithm_source=rec_obj.algorithm_source,
-            subject_score=rec_obj.subject_score,
-            semantic_score=rec_obj.semantic_score,
-            peer_score=rec_obj.peer_score
-        )
-        recommendation = crud.create_recommendation(db=db, recommendation=recommendation_to_create, user_id=user.user_id)
-        recommendations.append(recommendation)
-
+    # Now generate_recommendations will also persist and return the DB objects
+    recommendations = recommendation_engine.generate_recommendations(user, db=db, background_tasks=background_tasks)
     return recommendations
 
 @app.get("/{user_id}/recommendations/{recommendation_id}/explanation", tags=["Recommendations"])

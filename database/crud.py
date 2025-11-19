@@ -1,5 +1,6 @@
 
 from sqlalchemy.orm import Session
+import functools
 import database.schemas as schema, models
 import uuid
 import datetime
@@ -13,18 +14,29 @@ def get_user(db: Session, user_id: str):
     return db.query(schema.User).filter(schema.User.user_id == user_id).first()
 
 # CategoryConfidence CRUD
-def save_category_confidence(db: Session, user_id: str, predicted_category: str, prediction_confidence: float):
-    category_conf = schema.CategoryConfidence(
-        prediction_id=str(uuid.uuid4()),
-        created_at=datetime.datetime.now(),
-        predicted_category=predicted_category,
-        user_id=user_id,
-        prediction_confidence=prediction_confidence
-    )
-    db.add(category_conf)
+def save_category_confidences_batch(db: Session, confidences: list[dict], user_id: str):
+    """
+    Saves a batch of category confidences in a single transaction.
+    confidences: List of dicts with keys: predicted_category, prediction_confidence
+    """
+    import uuid, datetime
+    db_confidences = [
+        schema.CategoryConfidence(
+            prediction_id=str(uuid.uuid4()),
+            created_at=datetime.datetime.now(),
+            predicted_category=conf['predicted_category'],
+            user_id=user_id,
+            prediction_confidence=conf['prediction_confidence']
+        )
+        for conf in confidences
+    ]
+    if not db_confidences:
+        return []
+    db.add_all(db_confidences)
     db.commit()
-    db.refresh(category_conf)
-    return category_conf
+    for conf in db_confidences:
+        db.refresh(conf)
+    return db_confidences
 
 # Personal Interest CRUD
 def get_personal_interests(db: Session, user_id: str):
@@ -39,26 +51,34 @@ def get_academic_data(db: Session, user_id: str):
     return db.query(schema.AcademicData).filter(schema.AcademicData.user_id == user_id).first()
 
 # Recommendation CRUD
-def create_recommendation(db: Session, recommendation: models.RecommendationCreate, user_id: str):
-    import datetime
-    db_recommendation = schema.Recommendation(
-        recommendation_id=str(uuid.uuid4()),
-        user_id=user_id,
-        program_id=recommendation.program_id,
-        confidence_score=recommendation.confidence_score,
-        market_score=recommendation.market_score,
-        explanation=getattr(recommendation, "explanation", None),
-        created_at=getattr(recommendation, "created_at", datetime.datetime.now()),
-        liked=getattr(recommendation, "liked", False),
-        algorithm_source=getattr(recommendation, "algorithm_source", None),
-        subject_score=getattr(recommendation, "subject_score", None),
-        semantic_score=getattr(recommendation, "semantic_score", None),
-        peer_score=getattr(recommendation, "peer_score", None)
-    )
-    db.add(db_recommendation)
+def create_recommendations_batch(db: Session, recommendations: list[models.RecommendationCreate], user_id: str):
+    """
+    Saves a batch of recommendations in a single transaction.
+    """
+    db_recommendations = [
+        schema.Recommendation(
+            recommendation_id=str(uuid.uuid4()),
+            user_id=user_id,
+            program_id=rec.program_id,
+            confidence_score=rec.confidence_score,
+            market_score=rec.market_score,
+            explanation=getattr(rec, "explanation", None),
+            created_at=getattr(rec, "created_at", datetime.datetime.now()),
+            liked=getattr(rec, "liked", False),
+            algorithm_source=getattr(rec, "algorithm_source", None),
+            subject_score=getattr(rec, "subject_score", None),
+            semantic_score=getattr(rec, "semantic_score", None),
+            peer_score=getattr(rec, "peer_score", None)
+        )
+        for rec in recommendations
+    ]
+    if not db_recommendations:
+        return []
+    db.add_all(db_recommendations)
     db.commit()
-    db.refresh(db_recommendation)
-    return db_recommendation
+    for rec in db_recommendations:
+        db.refresh(rec)
+    return db_recommendations
 
 def get_recommendations(db: Session, user_id: str = None, skip: int = 0, limit: int = 100):
     query = db.query(schema.Recommendation)
@@ -84,7 +104,9 @@ def delete_recommendations_by_user_id(db: Session, user_id: str):
 def get_degree_program(db: Session, program_id: str):
     return db.query(schema.DegreeProgram).filter(schema.DegreeProgram.program_id == program_id).first()
 
+@functools.lru_cache(maxsize=None)
 def get_degree_programs(db: Session, skip: int = 0, limit: int = 100):
+    print("Cache miss: Fetching degree programs from DB")
     return db.query(schema.DegreeProgram).offset(skip).limit(limit).all()
 
 # Subject CRUD
@@ -92,7 +114,9 @@ def get_degree_programs(db: Session, skip: int = 0, limit: int = 100):
 def get_subject(db: Session, subject_id: str):
     return db.query(schema.Subject).filter(schema.Subject.subject_id == subject_id).first()
 
+@functools.lru_cache(maxsize=None)
 def get_subjects(db: Session, skip: int = 0, limit: int = 100):
+    print("Cache miss: Fetching subjects from DB")
     return db.query(schema.Subject).offset(skip).limit(limit).all()
 
 # SubjectGrade CRUD
@@ -106,17 +130,16 @@ def get_subject_requirements_by_program(db: Session, program_id: str):
     return db.query(schema.SubjectRequirement).filter(schema.SubjectRequirement.program_id == program_id).all()
 
 # Industry CRUD
+@functools.lru_cache(maxsize=None)
 def get_industries(db: Session, skip: int = 0, limit: int = 100):
+    print("Cache miss: Fetching industries from DB")
     return db.query(schema.Industry).offset(skip).limit(limit).all()
 
 # Generic Embedding CRUD
-def save_embedding(db: Session, table: str, row_id: str, embedding: str, secondary_id: str = None):
+def save_embeddings_batch(db: Session, table: str, embeddings: list[dict]):
     """
-    Save an embedding value to the specified table and row.
-    table: one of 'personal_interests', 'subjects', 'industries', 'degree_programs'
-    row_id: primary key (UUID or composite)
-    embedding: embedding string (comma-separated)
-    secondary_id: for tables with composite PK (e.g., interest for personal_interests)
+    Saves a batch of embeddings for a given table in a single transaction.
+    Each dict in embeddings should have keys: row_id, embedding, (optional) secondary_id
     """
     model_map = {
         'personal_interests': schema.PersonalInterest,
@@ -131,28 +154,44 @@ def save_embedding(db: Session, table: str, row_id: str, embedding: str, seconda
         'degree_programs': ['program_id']
     }
     model = model_map.get(table)
-    if not model:
-        raise ValueError(f"Table '{table}' does not support embeddings.")
     pk_fields = pk_map[table]
-    query = db.query(model)
-    if table == 'personal_interests' and secondary_id is not None:
-        instance = query.filter(getattr(model, pk_fields[0]) == row_id, getattr(model, pk_fields[1]) == secondary_id).first()
-    else:
-        instance = query.filter(getattr(model, pk_fields[0]) == row_id).first()
-    if not instance:
-        raise ValueError(f"Row not found in '{table}' for id '{row_id}'.")
-    # Ensure embedding is wrapped in square brackets for PostgreSQL vector type
-    if not embedding.startswith('['):
-        embedding = f'[{embedding}]'
-    if table == 'degree_programs':
-        instance.description_embedding = embedding
-    else:
-        instance.embedding = embedding
+    db_instances = []
+    for emb in embeddings:
+        row_id = emb['row_id']
+        embedding = emb['embedding']
+        secondary_id = emb.get('secondary_id')
+        # Ensure embedding is wrapped in square brackets for PostgreSQL vector type
+        if not embedding.startswith('['):
+            embedding = f'[{embedding}]'
+        # Find or create instance
+        query = db.query(model)
+        if table == 'personal_interests' and secondary_id is not None:
+            instance = query.filter(getattr(model, pk_fields[0]) == row_id, getattr(model, pk_fields[1]) == secondary_id).first()
+        else:
+            instance = query.filter(getattr(model, pk_fields[0]) == row_id).first()
+        if not instance:
+            # Create new instance
+            if table == 'personal_interests' and secondary_id is not None:
+                instance = model(user_id=row_id, interest=secondary_id, embedding=embedding)
+            else:
+                instance = model(**{pk_fields[0]: row_id}, embedding=embedding)
+        else:
+            if table == 'degree_programs':
+                instance.description_embedding = embedding
+            else:
+                instance.embedding = embedding
+        db_instances.append(instance)
+    if not db_instances:
+        return []
+    db.add_all(db_instances)
     db.commit()
-    db.refresh(instance)
-    return instance
+    for inst in db_instances:
+        db.refresh(inst)
+    return db_instances
+
 
 # --- Recommendation Weights ---
+@functools.lru_cache(maxsize=None)
 def get_current_recommendation_weights(db):
     """
     Fetch the current (latest) recommendation weights from the recommendation_weights table.
@@ -226,7 +265,11 @@ def get_market_indicator_values(
     return indicators
 
 
-def save_market_indicator_values(db, fetched, found_set):
+def save_market_indicator_values_batch(db, fetched, found_set):
+    """
+    Batch version: Save all new market indicator values in a single transaction.
+    """
+    new_values = []
     for point in fetched:
         tup = (point['indicator_name'], point['year'], point['country_code'])
         if tup in found_set:
@@ -250,6 +293,10 @@ def save_market_indicator_values(db, fetched, found_set):
             country_code=point['country_code'],
             industry_id=None
         )
-        db.add(value)
+        new_values.append(value)
+    if new_values:
+        db.add_all(new_values)
         db.commit()
-        db.refresh(value)
+        for v in new_values:
+            db.refresh(v)
+    return new_values

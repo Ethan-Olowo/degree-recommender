@@ -8,6 +8,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from datetime import datetime
 import database.crud as crud
+from fastapi import BackgroundTasks
 
 
 class ContentBasedFiltering:
@@ -16,10 +17,11 @@ class ContentBasedFiltering:
     with suitable degree programs based on their profiles.
     """
 
-    def __init__(self, subjects: list[Subject], industries: list[Industry]):
+    def __init__(self, subjects: list[Subject], industries: list[Industry], background_tasks: BackgroundTasks = None ):
         """
         Initializes the recommender.
         """
+        self.background_tasks = background_tasks
         self._fit_encoders(subjects, industries)
 
     def _fit_encoders(self, subjects: list[Subject], industries: list[Industry]):
@@ -52,6 +54,7 @@ class ContentBasedFiltering:
         # Interests embedding vector (average of all interest embeddings)
         interests = []
         interest_embeddings = []
+        embeddings_to_save = []
         if user.personal_interests:
             for interest_obj in user.personal_interests:
                 if hasattr(interest_obj, "interest"):
@@ -61,9 +64,19 @@ class ContentBasedFiltering:
                         emb = np.array([float(x) for x in emb_str.split(',')])
                     else:
                         emb = self.embedding_model.encode([interest_obj.interest])[0]
-                        # Save embedding to DB
-                        crud.save_embedding(self.db, 'personal_interests', str(user.user_id), ','.join(map(str, emb)), secondary_id=interest_obj.interest)
+                        # Collect embedding for batch save
+                        embeddings_to_save.append({
+                            'row_id': str(user.user_id),
+                            'embedding': ','.join(map(str, emb)),
+                            'secondary_id': interest_obj.interest
+                        })
                     interest_embeddings.append(emb)
+        # Batch save all new embeddings
+        if embeddings_to_save:
+            if hasattr(self, 'background_tasks') and self.background_tasks is not None:
+                self.background_tasks.add_task(crud.save_embeddings_batch, self.db, 'personal_interests', embeddings_to_save)
+            else:
+                crud.save_embeddings_batch(self.db, 'personal_interests', embeddings_to_save)
         if interest_embeddings:
             interest_vector = np.mean(interest_embeddings, axis=0)
         else:
@@ -80,6 +93,8 @@ class ContentBasedFiltering:
         subject_data = []
         semantic_embeddings = []
         program_id_map = {}
+        inds_embeddings_to_save = []
+        desc_embeddings_to_save = []
         for i, program in enumerate(programs):
             # Subject requirement vector
             requirements = {}
@@ -101,8 +116,11 @@ class ContentBasedFiltering:
                             emb = np.array([float(x) for x in emb_str.split(',')])
                         else:
                             emb = self.embedding_model.encode([industry_obj.industry_name])[0]
-                            # Save embedding to DB
-                            crud.save_embedding(self.db, 'industries', str(industry_obj.industry_id), ','.join(map(str, emb)))
+                            # Collect for batch save
+                            inds_embeddings_to_save.append({
+                                'row_id': str(industry_obj.industry_id),
+                                'embedding': ','.join(map(str, emb))
+                            })
                         inds_embeddings.append(emb)
             # Degree description embedding
             desc_emb = None
@@ -110,11 +128,14 @@ class ContentBasedFiltering:
                 desc_emb_str = program.description_embedding.strip('[]')
                 desc_emb = np.array([float(x) for x in desc_emb_str.split(',')])
             else:
-                # Compute and save embedding if not present
+                # Compute and collect embedding if not present
                 if getattr(program, 'description', None):
                     desc_emb = self.embedding_model.encode([program.description])[0]
-                    # Save embedding to DB
-                    crud.save_embedding(self.db, 'degree_programs', str(program.program_id), ','.join(map(str, desc_emb)), secondary_id='description_embedding')
+                    desc_embeddings_to_save.append({
+                        'row_id': str(program.program_id),
+                        'embedding': ','.join(map(str, desc_emb)),
+                        'secondary_id': 'description_embedding'
+                    })
             # Combine all semantic embeddings (industry + description)
             all_sem_embs = []
             if inds_embeddings:
@@ -128,6 +149,20 @@ class ContentBasedFiltering:
             semantic_embeddings.append(semantic_embedding)
 
             program_id_map[getattr(program, "program_id", None)] = i
+
+        # Batch save all new industry and description embeddings
+        if inds_embeddings_to_save:
+            if hasattr(self, 'background_tasks') and self.background_tasks is not None:
+                self.background_tasks.add_task(crud.save_embeddings_batch, self.db, 'industries', inds_embeddings_to_save)
+            else:
+                crud.save_embeddings_batch(self.db, 'industries', inds_embeddings_to_save)
+        if desc_embeddings_to_save:
+            if hasattr(self, 'background_tasks') and self.background_tasks is not None:
+                self.background_tasks.add_task(crud.save_embeddings_batch, self.db, 'degree_programs', desc_embeddings_to_save)
+            else:
+                crud.save_embeddings_batch(self.db, 'degree_programs', desc_embeddings_to_save)
+        if desc_embeddings_to_save:
+            crud.save_embeddings_batch(self.db, 'degree_programs', desc_embeddings_to_save)
 
         subject_df = pd.DataFrame(subject_data, columns=self.all_subjects)
         print("Subject DataFrame shape:", subject_df.shape)
