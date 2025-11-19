@@ -1,7 +1,6 @@
 import os
 import requests
 from models import DegreeProgram, Recommendation, User
-
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -14,6 +13,16 @@ class ExplanationGenerator:
     """
     A class to generate explanations for degree recommendations.
     """
+    # Section templates for degree explanation
+    SECTION_TEMPLATES = {
+        "semantic": "* **A Great Fit for Your Interests:**\n    {snippet_semantic}\n",
+        "subject": "* **Plays to Your Strengths:**\n    {snippet_subject}\n",
+        "peers": "* **Aligns with Similar Students:**\n  Students like you have thrived in this program.\n",
+        "market": "* **A Strong Future Outlook:**\n    {snippet_market}\n"
+    }
+    HEADER_TEMPLATE = "Based on your unique profile, we think **{degree_name}** is an excellent match for you!\n\nHere's a quick breakdown of why:\n\n"
+    FOOTER_TEMPLATE = "\nWhen recommending this program, we considered your interests, strengths, what students like you have done, and the job market."
+
     def generate_explanation(self, user: User, degree_program: DegreeProgram, recommendation: Recommendation, trends) -> str:
         """
         Generates a natural language explanation for a recommendation using an LLM.
@@ -51,63 +60,97 @@ class ExplanationGenerator:
         subject_requirements_list = getattr(degree_program, 'subject_requirements', []) or []
         required_subjects = ', '.join([req.subject.subject_name for req in subject_requirements_list if getattr(req, 'subject', None)]) if subject_requirements_list else "N/A"
 
-        # Refactored prompt for improved clarity, context structure, and LLM efficiency
-        prompt = f"""
-        You are an experienced academic advisor helping students choose degree programs. 
-        Your task is to explain why a given program is a good fit for a specific student.
+        scores = {}
+        scores['semantic_score'] = recommendation.semantic_score if recommendation.semantic_score is not None else 0
+        scores['peer_score'] = recommendation.peer_score if recommendation.peer_score is not None else 0
+        scores['subject_score'] = recommendation.subject_score if recommendation.subject_score is not None else 0
+        scores['market_score'] = recommendation.market_score if recommendation.market_score is not None else 0
 
-        Context:
-        User Profile:
-        - Academic Performance: {academic_performance}
-        - Interests: {personal_interests}
-        - Socioeconomic Background: {socioeconomic_str}
+        high_scores = []
+        for score_name, score_value in scores.items():
+            if isinstance(score_value, (int, float)) and score_value >= 0.5:
+                high_scores.append((score_name, score_value))
 
-        Recommended Degree:
-        - Name: {degree_program.program_name}
-        - Description: {degree_program.description}
-        - Category: {degree_program.category}
-        - Industries: {industries}
-        - Required Subjects: {required_subjects}
+        print(f"High scores identified: {high_scores}")
+        
+        high_scores_dict = dict(high_scores)
+        drivers_to_generate = []
+        
+        # Create a list of "jobs" for the LLM
+        if 'semantic_score' in high_scores_dict:
+            drivers_to_generate.append({
+                "type": "semantic",
+                "prompt_data": f"Interests: {personal_interests}, Degree Description: {degree_program.description}, Industries Linked to Degree: {industries}"
+            })
+        if 'subject_score' in high_scores_dict:
+            drivers_to_generate.append({
+                "type": "subject",
+                "prompt_data": f"Academic Performance: {academic_performance}, Required Subjects: {required_subjects}"
+            })
+        if 'market_score' in high_scores_dict:
+            drivers_to_generate.append({
+                "type": "market",
+                "prompt_data": f"Market Trends: {str(trends)}"
+            })
+        print(f"Drivers to generate snippets for: {[driver['type'] for driver in drivers_to_generate]}")
 
-        Recommendation Insights:
-        - Confidence Score: {recommendation.confidence_score}
-        - Market Score: {recommendation.market_score}
+        # Generate snippets for each driver and collect them by type
+        snippets = {}
+        for driver in drivers_to_generate:
+            snippet = self._get_llm_snippet(driver['type'], driver['prompt_data'], degree_program.program_name)
+            print(f"Generated snippet for {driver['type']}: {snippet}")
+            if snippet:
+                key = driver['type']
+                snippets[key] = snippet
 
-        Market Trends Summary:
-        {trends}
+        # Assemble the final explanation using only relevant sections
+        explanation_parts = [self.HEADER_TEMPLATE.format(degree_name=degree_program.program_name)]
+        for section in ["semantic", "subject", "market"]:
+            if section in snippets:
+                explanation_parts.append(self.SECTION_TEMPLATES[section].format(**{f"snippet_{section}": snippets[section]}))
+        
+        if 'peer_score' in high_scores_dict:
+            explanation_parts.append(self.SECTION_TEMPLATES["peers"])
 
-        Instructions:
-        1. Write a concise and encouraging explanation (max 150 words).
-        2. Use friendly, clear language understandable to a high school student.
-        3. Highlight how the program aligns with the user’s profile and market opportunities.
-        4. Do not restate the input data. Focus on synthesis.
-        5. Mention how current market trends and the user's interests support this choice.
-        6. Categories are derived from peer clustering and content-based filtering methods.
+        explanation_parts.append(self.FOOTER_TEMPLATE)
+        final_explanation = "\n".join(explanation_parts)
+        return final_explanation
+       
 
-        Now generate the explanation.
+        
+        
+    def _get_llm_snippet(self, driver_type: str, data: str, program_name: str) -> str:
         """
+        Generates a single, concise sentence for a specific recommendation driver.
+        """
+        prompts = {
+            "semantic": f"A student's data shows: '{data}'. Write one friendly sentence (max 30 words) explaining how this shows the '{program_name}' program is a good fit for their interests.",
+            "subject": f"A student's data shows: '{data}'. Write one encouraging sentence (max 30 words) explaining how their academic strengths match the '{program_name}' program.",
+            "market": f"Data shows: '{data}'. Write one exciting sentence (max 30 words) about the strong career outlook for the '{program_name}' program.",
+        }
 
-        try:
-            headers = {
+        prompt_content = prompts.get(driver_type, "Explain this data.")
+
+        headers = {
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json"
             }
-            
-            payload = {
-                "model": "openai/gpt-oss-20b:free",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful academic advisor who explains recommendations clearly and positively."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.65,
-                "top_p": 0.9
-            }
+        payload = {
+            "model": "openai/gpt-oss-20b:free",
+            "messages": [
+                {"role": "system", "content": "You are a career guidance assistant. You write a concise, encouraging sentence for students, explaining why they have been recommended a specific program."},
+                {"role": "user", "content": prompt_content}
+            ],
+            "temperature": 0.7,
+            "top_p": 0.9,
+            # "max_tokens": 100  # CRITICAL: Constrain the output!
+        }
 
+        try:
             resp = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
-            explanation = data["choices"][0]["message"]["content"].strip()
-            return explanation
+            return data["choices"][0]["message"]["content"].strip()
         except Exception as e:
-            print(f"Error calling LLM API: {e}")
-            raise Exception("Failed to generate explanation from LLM.")
+            print(f"Error generating snippet for {driver_type}: {e}")
+            return "" # Return empty string on failure
