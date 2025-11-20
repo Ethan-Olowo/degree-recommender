@@ -97,7 +97,7 @@ def get_recommendations(user_id: str, db: Session = Depends(get_db), background_
     return recommendations
 
 @app.get("/{user_id}/recommendations/{recommendation_id}/explanation", tags=["Recommendations"])
-def get_recommendation_explanation(user_id: str, recommendation_id: str, db: Session = Depends(get_db)):
+def get_recommendation_explanation(user_id: str, recommendation_id: str, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
     """
     Generate and retrieve an explanation for a specific recommendation.
     """
@@ -114,11 +114,8 @@ def get_recommendation_explanation(user_id: str, recommendation_id: str, db: Ses
 
     if not recommendation.explanation:
         degree_program = crud.get_degree_program(db, program_id=recommendation.program_id)
+        explanation = recommendation_engine.generate_explanation(student_data, degree_program, recommendation, db=db, background_tasks=background_tasks)
 
-        explanation = recommendation_engine.generate_explanation(student_data, degree_program, recommendation)
-        crud.update_recommendation_explanation(db, recommendation_id=recommendation_id, explanation=explanation)
-        recommendation.explanation = explanation
-
-    return {"recommendation_id": recommendation_id, "explanation": recommendation.explanation}
+    return {"recommendation_id": recommendation_id, "explanation": explanation}
 
 

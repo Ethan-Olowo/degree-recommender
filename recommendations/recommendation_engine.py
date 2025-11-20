@@ -4,7 +4,7 @@ from recommendations.peer_clustering import PeerClustering
 from recommendations.explanation_generator import ExplanationGenerator
 from models import DegreeProgram, Recommendation, User, RecommendationCreate
 from database.schemas import AcademicData, MarketIndicatorValue, SubjectGrade, Subject, DegreeIndustry, Industry, SubjectRequirement
-from database.crud import get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values, save_category_confidences_batch, create_recommendations_batch
+from database.crud import get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values, save_category_confidences_batch, create_recommendations_batch, update_recommendation_explanation
 from fastapi import BackgroundTasks
 
 class RecommendationEngine:
@@ -158,12 +158,17 @@ class RecommendationEngine:
             return recommendations
 
 
-    def generate_explanation(self, user: User, degree_program: DegreeProgram, recommendation: Recommendation) -> str:
+    def generate_explanation(self, user: User, degree_program: DegreeProgram, recommendation: Recommendation, db=None, background_tasks: BackgroundTasks = None) -> str:
         """
         Generates a natural language explanation for a recommendation using an LLM.
         """
         trends = self.market_trend_analyzer.analyze_trends(degree_program)
-        return self.explanation_generator.generate_explanation(user, degree_program, recommendation, trends)
+        explanation = self.explanation_generator.generate_explanation(user, degree_program, recommendation, trends)
+        if db is not None and background_tasks is not None:
+            background_tasks.add_task(update_recommendation_explanation, db, recommendation_id=recommendation.recommendation_id, explanation=explanation)
+        elif db is not None:
+            update_recommendation_explanation(db, recommendation_id=recommendation.recommendation_id, explanation=explanation)
+        return explanation
 
     def filter_programs(self, categories: list[str]) -> list[DegreeProgram]:
         """
