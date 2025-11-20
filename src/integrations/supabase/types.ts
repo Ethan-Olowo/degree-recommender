@@ -46,6 +46,38 @@ export type Database = {
           },
         ]
       }
+      category_confidence: {
+        Row: {
+          created_at: string
+          predicted_category: string
+          prediction_confidence: number
+          prediction_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          predicted_category: string
+          prediction_confidence: number
+          prediction_id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          predicted_category?: string
+          prediction_confidence?: number
+          prediction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_confidence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       countries: {
         Row: {
           country_code: string
@@ -76,14 +108,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "degree_industries_industry_id_fkey"
+            foreignKeyName: "fk_degree_industries_industry"
             columns: ["industry_id"]
             isOneToOne: false
             referencedRelation: "industries"
             referencedColumns: ["industry_id"]
           },
           {
-            foreignKeyName: "degree_industries_program_id_fkey"
+            foreignKeyName: "fk_degree_industries_program"
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "degree_programs"
@@ -93,28 +125,31 @@ export type Database = {
       }
       degree_programs: {
         Row: {
+          category: string | null
           description: string | null
+          description_embedding: string | null
           minimum_gpa: number | null
           program_id: string
           program_name: string
           program_type: string | null
-          category: string
         }
         Insert: {
+          category?: string | null
           description?: string | null
+          description_embedding?: string | null
           minimum_gpa?: number | null
           program_id?: string
           program_name: string
           program_type?: string | null
-          category: string
         }
         Update: {
+          category?: string | null
           description?: string | null
+          description_embedding?: string | null
           minimum_gpa?: number | null
           program_id?: string
           program_name?: string
           program_type?: string | null
-          category?: string
         }
         Relationships: []
       }
@@ -141,14 +176,17 @@ export type Database = {
       }
       industries: {
         Row: {
+          embedding: string | null
           industry_id: string
           industry_name: string
         }
         Insert: {
+          embedding?: string | null
           industry_id?: string
           industry_name: string
         }
         Update: {
+          embedding?: string | null
           industry_id?: string
           industry_name?: string
         }
@@ -157,45 +195,45 @@ export type Database = {
       market_indicator_values: {
         Row: {
           country_code: string | null
-          indicator_type_id: string
+          indicator_type_id: string | null
           industry_id: string | null
           last_updated: string | null
-          value: number
+          value: number | null
           value_id: string
         }
         Insert: {
           country_code?: string | null
-          indicator_type_id: string
+          indicator_type_id?: string | null
           industry_id?: string | null
           last_updated?: string | null
-          value: number
+          value?: number | null
           value_id?: string
         }
         Update: {
           country_code?: string | null
-          indicator_type_id?: string
+          indicator_type_id?: string | null
           industry_id?: string | null
           last_updated?: string | null
-          value?: number
+          value?: number | null
           value_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "market_indicator_values_country_code_fkey"
+            foreignKeyName: "fk_market_values_country"
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "countries"
             referencedColumns: ["country_code"]
           },
           {
-            foreignKeyName: "market_indicator_values_indicator_type_id_fkey"
+            foreignKeyName: "fk_market_values_indicator"
             columns: ["indicator_type_id"]
             isOneToOne: false
             referencedRelation: "indicator_types"
             referencedColumns: ["indicator_type_id"]
           },
           {
-            foreignKeyName: "market_indicator_values_industry_id_fkey"
+            foreignKeyName: "fk_market_values_industry"
             columns: ["industry_id"]
             isOneToOne: false
             referencedRelation: "industries"
@@ -205,14 +243,17 @@ export type Database = {
       }
       personal_interests: {
         Row: {
+          embedding: string | null
           interest: string
           user_id: string
         }
         Insert: {
+          embedding?: string | null
           interest: string
           user_id: string
         }
         Update: {
+          embedding?: string | null
           interest?: string
           user_id?: string
         }
@@ -226,44 +267,96 @@ export type Database = {
           },
         ]
       }
-      recommendations: {
+      recommendation_weights: {
         Row: {
-          recommendation_id: string; // uuid
-          user_id: string; // uuid
-          program_id: string | null; // uuid
-          confidence_score: number | null;
-          explanation: string | null;
-          market_score: number | null;
-          created_at: string;
-          liked: boolean;
+          algorithm_id: string
+          category_rank_weight: number
+          confidence_score_weight: number
+          created_at: string | null
+          current: boolean
+          market_score_weight: number
+          semantic_similarity_weight: number
+          subject_similarity_weight: number
         }
         Insert: {
-          recommendation_id?: string;
-          user_id: string;
-          program_id?: string | null;
-          confidence_score?: number | null;
-          explanation?: string | null;
-          market_score?: number | null;
-          created_at?: string;
-          liked?: boolean;
+          algorithm_id?: string
+          category_rank_weight?: number
+          confidence_score_weight?: number
+          created_at?: string | null
+          current?: boolean
+          market_score_weight?: number
+          semantic_similarity_weight?: number
+          subject_similarity_weight?: number
         }
         Update: {
-          recommendation_id?: string;
-          user_id?: string;
-          program_id?: string | null;
-          confidence_score?: number | null;
-          explanation?: string | null;
-          market_score?: number | null;
-          created_at?: string;
-          liked?: boolean;
+          algorithm_id?: string
+          category_rank_weight?: number
+          confidence_score_weight?: number
+          created_at?: string | null
+          current?: boolean
+          market_score_weight?: number
+          semantic_similarity_weight?: number
+          subject_similarity_weight?: number
+        }
+        Relationships: []
+      }
+      recommendations: {
+        Row: {
+          algorithm_source: string
+          confidence_score: number | null
+          created_at: string
+          explanation: string | null
+          liked: boolean
+          market_score: number | null
+          peer_score: number | null
+          program_id: string | null
+          recommendation_id: string
+          semantic_score: number | null
+          subject_score: number | null
+          user_id: string
+        }
+        Insert: {
+          algorithm_source?: string
+          confidence_score?: number | null
+          created_at?: string
+          explanation?: string | null
+          liked?: boolean
+          market_score?: number | null
+          peer_score?: number | null
+          program_id?: string | null
+          recommendation_id?: string
+          semantic_score?: number | null
+          subject_score?: number | null
+          user_id: string
+        }
+        Update: {
+          algorithm_source?: string
+          confidence_score?: number | null
+          created_at?: string
+          explanation?: string | null
+          liked?: boolean
+          market_score?: number | null
+          peer_score?: number | null
+          program_id?: string | null
+          recommendation_id?: string
+          semantic_score?: number | null
+          subject_score?: number | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "recommendations_program_id_fkey"
+            foreignKeyName: "fk_recommendations_program"
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "degree_programs"
             referencedColumns: ["program_id"]
+          },
+          {
+            foreignKeyName: "recommendations_algorithm_source_fkey"
+            columns: ["algorithm_source"]
+            isOneToOne: false
+            referencedRelation: "recommendation_weights"
+            referencedColumns: ["algorithm_id"]
           },
           {
             foreignKeyName: "recommendations_user_id_fkey"
@@ -276,18 +369,18 @@ export type Database = {
       }
       reports: {
         Row: {
-          generated_at: string
-          recommendation_stats: Json | null
+          generated_at: string | null
+          recommendation_stats: string | null
           report_id: string
         }
         Insert: {
-          generated_at?: string
-          recommendation_stats?: Json | null
+          generated_at?: string | null
+          recommendation_stats?: string | null
           report_id?: string
         }
         Update: {
-          generated_at?: string
-          recommendation_stats?: Json | null
+          generated_at?: string | null
+          recommendation_stats?: string | null
           report_id?: string
         }
         Relationships: []
@@ -295,28 +388,41 @@ export type Database = {
       socioeconomic_indicators: {
         Row: {
           country_code: string | null
+          father_education: string | null
+          funding_method: Database["public"]["Enums"]["funding_soucrces"] | null
           gender: string | null
           income_level: string | null
+          mother_education: string | null
           school_type: string | null
           user_id: string
         }
         Insert: {
           country_code?: string | null
+          father_education?: string | null
+          funding_method?:
+            | Database["public"]["Enums"]["funding_soucrces"]
+            | null
           gender?: string | null
           income_level?: string | null
+          mother_education?: string | null
           school_type?: string | null
           user_id: string
         }
         Update: {
           country_code?: string | null
+          father_education?: string | null
+          funding_method?:
+            | Database["public"]["Enums"]["funding_soucrces"]
+            | null
           gender?: string | null
           income_level?: string | null
+          mother_education?: string | null
           school_type?: string | null
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "socioeconomic_indicators_country_code_fkey"
+            foreignKeyName: "fk_socioeconomic_country"
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "countries"
@@ -349,14 +455,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "subject_grades_academic_data_id_fkey"
+            foreignKeyName: "fk_subject_grades_academic"
             columns: ["academic_data_id"]
             isOneToOne: false
             referencedRelation: "academic_data"
             referencedColumns: ["academic_data_id"]
           },
           {
-            foreignKeyName: "subject_grades_subject_id_fkey"
+            foreignKeyName: "fk_subject_grades_subject"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
@@ -382,14 +488,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "subject_requirements_program_id_fkey"
+            foreignKeyName: "fk_subject_requirements_program"
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "degree_programs"
             referencedColumns: ["program_id"]
           },
           {
-            foreignKeyName: "subject_requirements_subject_id_fkey"
+            foreignKeyName: "fk_subject_requirements_subject"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
@@ -399,14 +505,17 @@ export type Database = {
       }
       subjects: {
         Row: {
+          embedding: string | null
           subject_id: string
           subject_name: string
         }
         Insert: {
+          embedding?: string | null
           subject_id?: string
           subject_name: string
         }
         Update: {
+          embedding?: string | null
           subject_id?: string
           subject_name?: string
         }
@@ -435,10 +544,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_market_insights_reports: { Args: never; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      funding_soucrces: "self" | "parents" | "credit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -565,6 +674,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      funding_soucrces: ["self", "parents", "credit"],
+    },
   },
 } as const

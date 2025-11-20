@@ -27,7 +27,15 @@ import {
   Heart,
   HeartOff,
 } from "lucide-react";
-// ...existing code...
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CyclingLoader } from "@/components/CyclingLoader";
 import { toast } from "@/hooks/use-toast";
@@ -40,6 +48,9 @@ interface Recommendation {
   confidence_score: number | null;
   explanation: string | null;
   market_score: number | null;
+  semantic_score: number | null;
+  subject_score: number | null;
+  peer_score: number | null;
   created_at: string;
   liked: boolean;
   degree_programs?: {
@@ -146,6 +157,9 @@ const RecommendationDetails = () => {
           confidence_score,
           explanation,
           market_score,
+          semantic_score,
+          subject_score,
+          peer_score,
           created_at,
           liked,
           degree_programs (
@@ -244,6 +258,30 @@ const RecommendationDetails = () => {
   );
   const marketPercent = Math.round((recommendation.market_score || 0) * 100);
 
+  // Prepare radar chart data
+  const radarData = [
+    {
+      metric: "Peer Score",
+      value: (recommendation.peer_score || 0) * 100,
+      fullMark: 100,
+    },
+    {
+      metric: "Market Score",
+      value: (recommendation.market_score || 0) * 100,
+      fullMark: 100,
+    },
+    {
+      metric: "Semantic Score",
+      value: (recommendation.semantic_score || 0) * 100,
+      fullMark: 100,
+    },
+    {
+      metric: "Subject Score",
+      value: (recommendation.subject_score || 0) * 100,
+      fullMark: 100,
+    },
+  ];
+
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
@@ -338,6 +376,59 @@ const RecommendationDetails = () => {
                   {recommendation.degree_programs?.description ||
                     "No detailed description available for this program."}
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  Score Breakdown
+                </CardTitle>
+                <CardDescription>
+                  Visual representation of recommendation metrics
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <RadarChart data={radarData}>
+                    <PolarGrid stroke="hsl(var(--border))" />
+                    <PolarAngleAxis 
+                      dataKey="metric" 
+                      tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                    />
+                    <PolarRadiusAxis 
+                      angle={90} 
+                      domain={[0, 100]}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    />
+                    <Radar
+                      name="Score"
+                      dataKey="value"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.3}
+                      strokeWidth={2}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                              <p className="font-medium text-sm">
+                                {payload[0].payload.metric}
+                              </p>
+                              <p className="text-primary font-bold">
+                                {Math.round(payload[0].value as number)}%
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
