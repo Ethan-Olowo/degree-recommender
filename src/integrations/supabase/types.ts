@@ -523,16 +523,19 @@ export type Database = {
       }
       users: {
         Row: {
+          created_at: string
           full_name: string | null
           is_admin: boolean
           user_id: string
         }
         Insert: {
+          created_at?: string
           full_name?: string | null
           is_admin?: boolean
           user_id: string
         }
         Update: {
+          created_at?: string
           full_name?: string | null
           is_admin?: boolean
           user_id?: string
@@ -544,7 +547,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_admin_dashboard_stats: { Args: never; Returns: Json }
+      get_dashboard_summary: { Args: never; Returns: Json }
       get_market_insights_reports: { Args: never; Returns: Json }
+      get_student_dashboard_data: { Args: { p_user_id: string }; Returns: Json }
+      get_student_profile: { Args: { p_user_id: string }; Returns: Json }
     }
     Enums: {
       funding_soucrces: "self" | "parents" | "credit"

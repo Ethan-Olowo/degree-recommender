@@ -25,6 +25,9 @@ const profileSchema = z.object({
   gender: z.string().optional(),
   incomeLevel: z.string().optional(),
   countryCode: z.string().optional(),
+  fatherEducation: z.string().optional(),
+  motherEducation: z.string().optional(),
+  fundingMethod: z.string().optional(),
   
   // Interests
   interests: z.array(z.string()).optional(),
@@ -46,6 +49,9 @@ const ProfileCreate = () => {
     gender: '',
     incomeLevel: '',
     countryCode: '',
+    fatherEducation: 'Does not know',
+    motherEducation: 'Does not know',
+    fundingMethod: 'self',
     
     // Interests
     interests: [] as string[],
@@ -109,7 +115,7 @@ const ProfileCreate = () => {
 
 
         // Create socioeconomic indicators
-        if (formData.gender || formData.incomeLevel || formData.countryCode) {
+        if (formData.gender || formData.incomeLevel || formData.countryCode || formData.fatherEducation || formData.motherEducation || formData.fundingMethod) {
           await supabase
             .from('socioeconomic_indicators')
             .insert({
@@ -117,7 +123,10 @@ const ProfileCreate = () => {
               gender: formData.gender || null,
               income_level: formData.incomeLevel || null,
               country_code: formData.countryCode || null,
-              school_type: formData.schoolType || null
+              school_type: formData.schoolType || null,
+              father_education: formData.fatherEducation || 'Does not know',
+              mother_education: formData.motherEducation || 'Does not know',
+              funding_method: (formData.fundingMethod || 'self') as 'self' | 'parents' | 'credit'
             });
         }
 
@@ -315,6 +324,73 @@ const ProfileCreate = () => {
                       maxLength={2}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="fatherEducation">Father's Education (Optional)</Label>
+                    <Select
+                      value={formData.fatherEducation}
+                      onValueChange={(value) => setFormData({ ...formData, fatherEducation: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Does not know">Does not know</SelectItem>
+                        <SelectItem value="does not apply">Does not apply</SelectItem>
+                        <SelectItem value="incomplete primary school">Incomplete primary school</SelectItem>
+                        <SelectItem value="primary school complete">Primary school complete</SelectItem>
+                        <SelectItem value="incomplete secondary school">Incomplete secondary school</SelectItem>
+                        <SelectItem value="complete secondary school">Complete secondary school</SelectItem>
+                        <SelectItem value="Incomplete professional education">Incomplete professional education</SelectItem>
+                        <SelectItem value="complete professional education">Complete professional education</SelectItem>
+                        <SelectItem value="incomplete technical degree">Incomplete technical degree</SelectItem>
+                        <SelectItem value="complete Technical degree">Complete technical degree</SelectItem>
+                        <SelectItem value="Postgraduate">Postgraduate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="motherEducation">Mother's Education (Optional)</Label>
+                    <Select
+                      value={formData.motherEducation}
+                      onValueChange={(value) => setFormData({ ...formData, motherEducation: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Does not know">Does not know</SelectItem>
+                        <SelectItem value="does not apply">Does not apply</SelectItem>
+                        <SelectItem value="incomplete primary school">Incomplete primary school</SelectItem>
+                        <SelectItem value="primary school complete">Primary school complete</SelectItem>
+                        <SelectItem value="incomplete secondary school">Incomplete secondary school</SelectItem>
+                        <SelectItem value="complete secondary school">Complete secondary school</SelectItem>
+                        <SelectItem value="Incomplete professional education">Incomplete professional education</SelectItem>
+                        <SelectItem value="complete professional education">Complete professional education</SelectItem>
+                        <SelectItem value="incomplete technical degree">Incomplete technical degree</SelectItem>
+                        <SelectItem value="complete Technical degree">Complete technical degree</SelectItem>
+                        <SelectItem value="Postgraduate">Postgraduate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="fundingMethod">Funding Method (Optional)</Label>
+                    <Select
+                      value={formData.fundingMethod}
+                      onValueChange={(value) => setFormData({ ...formData, fundingMethod: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="self">Self</SelectItem>
+                        <SelectItem value="parents">Parents</SelectItem>
+                        <SelectItem value="credit">Credit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
 
@@ -380,6 +456,9 @@ const ProfileCreate = () => {
                       {formData.gender && <p>Gender: {formData.gender}</p>}
                       {formData.incomeLevel && <p>Income Level: {formData.incomeLevel}</p>}
                       {formData.countryCode && <p>Country: {formData.countryCode}</p>}
+                      {formData.fatherEducation && <p>Father's Education: {formData.fatherEducation}</p>}
+                      {formData.motherEducation && <p>Mother's Education: {formData.motherEducation}</p>}
+                      {formData.fundingMethod && <p>Funding Method: {formData.fundingMethod}</p>}
                     </div>
                   </div>
                   
