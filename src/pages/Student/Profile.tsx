@@ -47,6 +47,9 @@ interface SocioeconomicIndicators {
   income_level: string | null;
   gender: string | null;
   school_type: string | null;
+  father_education: string | null;
+  mother_education: string | null;
+  funding_method: 'self' | 'parents' | 'credit' | null;
 }
 
 interface Country {
@@ -81,7 +84,10 @@ const Profile = () => {
     socioeconomicData.country_code,
     socioeconomicData.income_level,
     socioeconomicData.gender,
-    socioeconomicData.school_type
+    socioeconomicData.school_type,
+    socioeconomicData.father_education,
+    socioeconomicData.mother_education,
+    socioeconomicData.funding_method
   ].filter(field => field !== null && field !== '').length : 0;
 
   const totalItems = interests.length + subjectGrades.length + socioeconomicFilledCount;
@@ -110,6 +116,9 @@ const Profile = () => {
         income_level: null,
         gender: null,
         school_type: null,
+        father_education: 'Does not know',
+        mother_education: 'Does not know',
+        funding_method: 'self',
       });
       setCountries(profile.countries || []);
       setAvailableSubjects(profile.available_subjects || []);
@@ -356,6 +365,9 @@ const Profile = () => {
             income_level: socioeconomicData.income_level,
             gender: socioeconomicData.gender,
             school_type: socioeconomicData.school_type,
+            father_education: socioeconomicData.father_education,
+            mother_education: socioeconomicData.mother_education,
+            funding_method: socioeconomicData.funding_method as 'self' | 'parents' | 'credit' | null,
           })
           .eq('user_id', user?.id);
 
@@ -365,11 +377,14 @@ const Profile = () => {
         const { error } = await supabase
           .from('socioeconomic_indicators')
           .insert({
-            user_id: user?.id,
+            user_id: user!.id,
             country_code: socioeconomicData.country_code,
             income_level: socioeconomicData.income_level,
             gender: socioeconomicData.gender,
             school_type: socioeconomicData.school_type,
+            father_education: socioeconomicData.father_education,
+            mother_education: socioeconomicData.mother_education,
+            funding_method: socioeconomicData.funding_method as 'self' | 'parents' | 'credit' | null,
           });
 
         if (error) throw error;
@@ -643,6 +658,82 @@ const Profile = () => {
                           <SelectItem value="private">Private School</SelectItem>
                           <SelectItem value="international">International School</SelectItem>
                           <SelectItem value="homeschool">Homeschool</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fatherEducation">Father's Education</Label>
+                      <Select
+                        value={socioeconomicData?.father_education || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          father_education: value,
+                        }))}
+                      >
+                        <SelectTrigger id="fatherEducation">
+                          <SelectValue placeholder="Select education level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Does not know">Does not know</SelectItem>
+                          <SelectItem value="does not apply">Does not apply</SelectItem>
+                          <SelectItem value="incomplete primary school">Incomplete primary school</SelectItem>
+                          <SelectItem value="primary school complete">Primary school complete</SelectItem>
+                          <SelectItem value="incomplete secondary school">Incomplete secondary school</SelectItem>
+                          <SelectItem value="complete secondary school">Complete secondary school</SelectItem>
+                          <SelectItem value="Incomplete professional education">Incomplete professional education</SelectItem>
+                          <SelectItem value="complete professional education">Complete professional education</SelectItem>
+                          <SelectItem value="incomplete technical degree">Incomplete technical degree</SelectItem>
+                          <SelectItem value="complete Technical degree">Complete technical degree</SelectItem>
+                          <SelectItem value="Postgraduate">Postgraduate</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="motherEducation">Mother's Education</Label>
+                      <Select
+                        value={socioeconomicData?.mother_education || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          mother_education: value,
+                        }))}
+                      >
+                        <SelectTrigger id="motherEducation">
+                          <SelectValue placeholder="Select education level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Does not know">Does not know</SelectItem>
+                          <SelectItem value="does not apply">Does not apply</SelectItem>
+                          <SelectItem value="incomplete primary school">Incomplete primary school</SelectItem>
+                          <SelectItem value="primary school complete">Primary school complete</SelectItem>
+                          <SelectItem value="incomplete secondary school">Incomplete secondary school</SelectItem>
+                          <SelectItem value="complete secondary school">Complete secondary school</SelectItem>
+                          <SelectItem value="Incomplete professional education">Incomplete professional education</SelectItem>
+                          <SelectItem value="complete professional education">Complete professional education</SelectItem>
+                          <SelectItem value="incomplete technical degree">Incomplete technical degree</SelectItem>
+                          <SelectItem value="complete Technical degree">Complete technical degree</SelectItem>
+                          <SelectItem value="Postgraduate">Postgraduate</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fundingMethod">Funding Method</Label>
+                      <Select
+                        value={socioeconomicData?.funding_method || ''}
+                        onValueChange={(value) => setSocioeconomicData(prev => ({
+                          ...prev!,
+                          funding_method: value as 'self' | 'parents' | 'credit',
+                        }))}
+                      >
+                        <SelectTrigger id="fundingMethod">
+                          <SelectValue placeholder="Select funding method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="self">Self</SelectItem>
+                          <SelectItem value="parents">Parents</SelectItem>
+                          <SelectItem value="credit">Credit</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
