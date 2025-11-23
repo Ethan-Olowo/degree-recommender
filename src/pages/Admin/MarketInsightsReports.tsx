@@ -114,12 +114,6 @@ const MarketInsightsReports = () => {
                 Data-driven insights on market indicators, industries, and countries
               </p>
             </div>
-            <Link to="/admin/indicators">
-              <Button className="btn-glow">
-                <Settings className="mr-2 h-4 w-4" />
-                Manage Indicators
-              </Button>
-            </Link>
           </div>
 
           {/* 2-column layout for industry/country data */}

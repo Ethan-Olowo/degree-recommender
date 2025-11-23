@@ -46,94 +46,26 @@ const AdminDashboard = () => {
   }, []);
 
   const fetchStats = async () => {
+    setIsLoading(true);
     try {
-      // Fetch total user count
-      const { count: userCount } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-
-      // Fetch new users this month - placeholder for now
-      const newUsersCount = 0;
-
-      // Fetch recommendation stats
-      const { data: recommendations } = await supabase
-        .from('recommendations')
-        .select('liked');
-
-      const totalRecs = recommendations?.length || 0;
-      const likedRecs = recommendations?.filter(r => r.liked).length || 0;
-      const likePercent = totalRecs > 0 ? (likedRecs / totalRecs) * 100 : 0;
-
-      // Fetch programs by category
-      const { data: programs } = await supabase
-        .from('degree_programs')
-        .select('category');
-
-      const categoryMap = new Map<string, number>();
-      programs?.forEach(p => {
-        const category = p.category || 'Uncategorized';
-        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
-      });
-
-      const programsByCategory = Array.from(categoryMap.entries()).map(([category, count]) => ({
-        category,
-        count,
-      }));
-
-      // Fetch active algorithm - simplified type handling
-      const algoResult = await (supabase as any)
-        .from('recommendation_weights')
-        .select('algorithm_id')
-        .eq('current', true)
-        .maybeSingle();
-
-      const activeAlgoId = algoResult.data?.algorithm_id || 'Default';
-
-      // Fetch top 3 industries by market indicator - simplified
-      const industriesResult = await (supabase as any)
-        .from('market_indicator_values')
-        .select('industry_id, value')
-        .order('value', { ascending: false })
-        .limit(3);
-
-      const topIndustriesData = industriesResult.data || [];
-      const industriesFormatted: { industry_name: string; value: number }[] = [];
-
-      for (const ind of topIndustriesData) {
-        const industryResult = await (supabase as any)
-          .from('industries')
-          .select('industry_name')
-          .eq('industry_id', ind.industry_id)
-          .maybeSingle();
-
-        industriesFormatted.push({
-          industry_name: industryResult.data?.industry_name || 'Unknown',
-          value: ind.value || 0,
+      // Call the Postgres function via Supabase RPC
+      const { data, error } = await (supabase.rpc as any)('get_admin_dashboard_stats');
+      if (error) throw error;
+      const statsData = Array.isArray(data) ? data[0] : data;
+      if (statsData) {
+        setStats({
+          totalUsers: statsData.totalUsers || 0,
+          newUsersThisMonth: statsData.newUsersThisMonth || 0,
+          totalRecommendations: statsData.totalRecommendations || 0,
+          recommendationsLiked: statsData.recommendationsLiked || 0,
+          likePercentage: statsData.likePercentage || 0,
+          programsByCategory: Array.isArray(statsData.programsByCategory) ? statsData.programsByCategory : [],
+          activeAlgorithm: statsData.activeAlgorithm || 'Default',
+          averageLikeRate: statsData.averageLikeRate || 0,
+          topIndustries: Array.isArray(statsData.topIndustries) ? statsData.topIndustries : [],
+          avgCategoryConfidence: statsData.avgCategoryConfidence || 0,
         });
       }
-
-      // Fetch average category confidence - simplified
-      const confidenceResult = await (supabase as any)
-        .from('category_confidence')
-        .select('prediction_confidence');
-
-      const confidenceData = confidenceResult.data || [];
-      const avgConfidence = confidenceData.length
-        ? confidenceData.reduce((sum: number, c: any) => sum + (c.prediction_confidence || 0), 0) / confidenceData.length
-        : 0;
-
-      setStats({
-        totalUsers: userCount || 0,
-        newUsersThisMonth: newUsersCount,
-        totalRecommendations: totalRecs,
-        recommendationsLiked: likedRecs,
-        likePercentage: likePercent,
-        programsByCategory,
-        activeAlgorithm: activeAlgoId,
-        averageLikeRate: likePercent,
-        topIndustries: industriesFormatted,
-        avgCategoryConfidence: avgConfidence,
-      });
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {

@@ -57,79 +57,53 @@ const StudentDashboard = () => {
   const [studentName, setStudentName] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
 
+
   useEffect(() => {
     if (user) {
-      fetchProfileAndRecommendations();
+      fetchDashboardData();
     }
   }, [user]);
 
-  const fetchProfileAndRecommendations = async () => {
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
     try {
-      // Fetch user name from users table
-      const { data: userData } = await supabase
-        .from("users")
-        .select("full_name")
-        .eq("user_id", user?.id)
-        .single();
-      setStudentName(userData?.full_name || "Student");
+      // Call the Postgres function via Supabase RPC
+      const { data, error } = await (supabase.rpc as any)('get_student_dashboard_data', { p_user_id: user?.id });
+      if (error) throw error;
+      if (!data) return;
 
-      // Fetch user profile and academic data
-      const { data: academicData } = await supabase
-        .from("academic_data")
-        .select("academic_data_id, gpa, grade_system, school_type")
-        .eq("user_id", user?.id)
-        .maybeSingle();
+      // Parse and set student name
+      setStudentName(data.student_name || "Student");
 
-      // Fetch personal interests
-      const { data: interests } = await supabase
-        .from("personal_interests")
-        .select("interest")
-        .eq("user_id", user?.id);
-
-      // Fetch subject grades
-      let subjectGrades = [];
-      if (academicData?.academic_data_id) {
-        const { data: grades } = await supabase
-          .from("subject_grades")
-          .select("grade, subject_id")
-          .eq("academic_data_id", academicData.academic_data_id);
-        subjectGrades = grades || [];
-      }
-
-      // Fetch socioeconomic data
-      const { data: socioData } = await supabase
-        .from("socioeconomic_indicators")
-        .select("country_code, income_level, gender, school_type")
-        .eq("user_id", user?.id)
-        .maybeSingle();
-
-      // Calculate profile completion
+      // Profile completion calculation
       let totalItems = 0;
-      totalItems += interests?.length || 0;
+      const profile = data.profile_data || {};
+      const interests = Array.isArray(profile.interests) ? profile.interests : [];
+      const subjectGrades = Array.isArray(profile.subject_grades) ? profile.subject_grades : [];
+      const socio = profile.socioeconomic || {};
+      const academic = profile.academic_data || {};
+
+      totalItems += interests.length;
       totalItems += subjectGrades.length;
-
-      // Count filled socioeconomic fields
-      if (socioData) {
-        if (socioData.country_code) totalItems++;
-        if (socioData.income_level) totalItems++;
-        if (socioData.gender) totalItems++;
-        if (socioData.school_type) totalItems++;
+      if (socio) {
+        if (socio.country_code) totalItems++;
+        if (socio.income_level) totalItems++;
+        if (socio.gender) totalItems++;
+        if (socio.school_type) totalItems++;
       }
-
-      // Count filled academic fields
-      if (academicData) {
-        if (academicData.gpa) totalItems++;
-        if (academicData.grade_system) totalItems++;
-        if (academicData.school_type) totalItems++;
+      if (academic) {
+        if (academic.gpa) totalItems++;
+        if (academic.grade_system) totalItems++;
+        if (academic.school_type) totalItems++;
       }
-
       const completionPercentage = Math.round((totalItems / 15) * 100);
       setProfileCompletion(completionPercentage);
 
-      if (academicData) {
+      // Set profileData for UI logic
+      if (academic && academic.academic_data_id) {
         setProfileData({
           user_id: user?.id || "",
-          academic_data: academicData,
+          academic_data: academic,
         });
       } else {
         setProfileData({
@@ -137,34 +111,13 @@ const StudentDashboard = () => {
         });
       }
 
-      // Fetch the 5 most recently generated recommendations
-      const { data: recData } = await supabase
-        .from("recommendations")
-        .select(
-          `
-          recommendation_id,
-          program_id,
-          confidence_score,
-          market_score,
-          explanation,
-          degree_programs (
-            program_name,
-            program_type,
-            description
-          )
-        `
-        )
-        .eq("user_id", user?.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (recData) {
-        // Sort by confidence_score descending before displaying
-        const sorted = (recData as any[]).sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
-        setRecommendations(sorted);
-      }
+      // Set recommendations
+      const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+      // Sort by confidence_score descending
+      const sorted = recs.sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
+      setRecommendations(sorted);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching dashboard data:", error);
     } finally {
       setIsLoading(false);
     }
@@ -172,7 +125,7 @@ const StudentDashboard = () => {
 
   const getScoreColor = (score: number) => {
     const percent = score * 100;
-    if (percent >= 80) return "text-success";
+    if (percent >= 75) return "text-success";
     if (percent >= 60) return "text-warning";
     return "text-muted-foreground";
   };

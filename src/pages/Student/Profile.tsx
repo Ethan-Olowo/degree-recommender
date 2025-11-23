@@ -88,110 +88,46 @@ const Profile = () => {
   const isProfileComplete = totalItems >= 15;
   const completionPercentage = Math.min((totalItems / 15) * 100, 100);
 
-  useEffect(() => {
-    fetchProfileData();
-    fetchAvailableSubjects();
-    fetchCountries();
-  }, [user]);
 
-  const fetchProfileData = async () => {
+  // Move fetchAllProfileData to top-level scope
+  const fetchAllProfileData = async () => {
     try {
       if (!user) return;
+      const { data, error } = await supabase.rpc('get_student_profile' as any, { p_user_id: user.id });
+      if (error) throw error;
+      if (!data) return;
 
-      // Fetch user data
-      const { data: userData } = await supabase
-        .from('users')
-        .select('full_name')
-        .eq('user_id', user.id)
-        .single();
+      // If data is an array, get the first item
+      const profile = Array.isArray(data) ? data[0] : data;
 
-      if (userData) {
-        setFullName(userData.full_name || '');
-      }
-
-      // Fetch academic data
-      const { data: academicData } = await supabase
-        .from('academic_data')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      setAcademicData(academicData);
-
-      // Fetch interests
-      const { data: interestsData } = await supabase
-        .from('personal_interests')
-        .select('*')
-        .eq('user_id', user.id);
-
-      setInterests(interestsData || []);
-
-      // Fetch subject grades if academic data exists
-      if (academicData) {
-        const { data: gradesData } = await supabase
-          .from('subject_grades')
-          .select(`
-            *,
-            subjects (
-              subject_name
-            )
-          `)
-          .eq('academic_data_id', academicData.academic_data_id);
-
-      setSubjectGrades(gradesData || []);
+      setFullName(profile.user?.full_name || '');
+      setAcademicData(profile.academic_data || null);
+      setInterests(profile.personal_interests || []);
+      setSubjectGrades(profile.subject_grades || []);
+      setSocioeconomicData(profile.socioeconomic_indicators || {
+        user_id: user.id,
+        country_code: null,
+        income_level: null,
+        gender: null,
+        school_type: null,
+      });
+      setCountries(profile.countries || []);
+      setAvailableSubjects(profile.available_subjects || []);
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile data',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Fetch socioeconomic data
-    const { data: socioData } = await supabase
-      .from('socioeconomic_indicators')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
+  };
 
-    setSocioeconomicData(socioData || {
-      user_id: user.id,
-      country_code: null,
-      income_level: null,
-      gender: null,
-      school_type: null,
-    });
-  } catch (error) {
-    console.error('Error fetching profile data:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to load profile data',
-      variant: 'destructive',
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-const fetchAvailableSubjects = async () => {
-  try {
-    const { data } = await supabase
-      .from('subjects')
-      .select('*')
-      .order('subject_name');
-
-    setAvailableSubjects(data || []);
-  } catch (error) {
-    console.error('Error fetching subjects:', error);
-  }
-};
-
-const fetchCountries = async () => {
-  try {
-    const { data } = await supabase
-      .from('countries')
-      .select('*')
-      .order('country_name');
-
-    setCountries(data || []);
-  } catch (error) {
-    console.error('Error fetching countries:', error);
-  }
-};
+  useEffect(() => {
+    fetchAllProfileData();
+  }, [user]);
 
   const handleSaveBasicInfo = async () => {
     setIsSaving(true);
@@ -261,7 +197,7 @@ const fetchCountries = async () => {
 
       if (error) throw error;
 
-      await fetchProfileData();
+      await fetchAllProfileData();
       setNewInterest('');
       toast({
         title: 'Success',
@@ -287,7 +223,7 @@ const fetchCountries = async () => {
 
       if (error) throw error;
 
-      await fetchProfileData();
+      await fetchAllProfileData();
       toast({
         title: 'Success',
         description: 'Interest removed successfully',
@@ -316,7 +252,7 @@ const fetchCountries = async () => {
 
       if (error) throw error;
 
-      await fetchProfileData();
+      await fetchAllProfileData();
       setSelectedSubject('');
       setNewGrade('');
       toast({
@@ -345,7 +281,7 @@ const fetchCountries = async () => {
 
       if (error) throw error;
 
-      await fetchProfileData();
+      await fetchAllProfileData();
       toast({
         title: 'Success',
         description: 'Grade removed successfully',
@@ -372,7 +308,7 @@ const fetchCountries = async () => {
 
       if (error) throw error;
 
-      await fetchProfileData();
+      await fetchAllProfileData();
       setEditingGradeId(null);
       setEditingGradeValue('');
       toast({

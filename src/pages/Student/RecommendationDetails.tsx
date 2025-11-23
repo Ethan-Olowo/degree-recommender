@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -261,7 +262,7 @@ const RecommendationDetails = () => {
   // Prepare radar chart data
   const radarData = [
     {
-      metric: "Peer Score",
+      metric: "Peer Similarity",
       value: (recommendation.peer_score || 0) * 100,
       fullMark: 100,
     },
@@ -271,12 +272,12 @@ const RecommendationDetails = () => {
       fullMark: 100,
     },
     {
-      metric: "Semantic Score",
+      metric: "Interest Fit",
       value: (recommendation.semantic_score || 0) * 100,
       fullMark: 100,
     },
     {
-      metric: "Subject Score",
+      metric: "Subject Fit",
       value: (recommendation.subject_score || 0) * 100,
       fullMark: 100,
     },
@@ -382,59 +383,6 @@ const RecommendationDetails = () => {
             <Card className="glass">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-primary" />
-                  Score Breakdown
-                </CardTitle>
-                <CardDescription>
-                  Visual representation of recommendation metrics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart data={radarData}>
-                    <PolarGrid stroke="hsl(var(--border))" />
-                    <PolarAngleAxis 
-                      dataKey="metric" 
-                      tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-                    />
-                    <PolarRadiusAxis 
-                      angle={90} 
-                      domain={[0, 100]}
-                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-                    />
-                    <Radar
-                      name="Score"
-                      dataKey="value"
-                      stroke="hsl(var(--primary))"
-                      fill="hsl(var(--primary))"
-                      fillOpacity={0.3}
-                      strokeWidth={2}
-                    />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-                              <p className="font-medium text-sm">
-                                {payload[0].payload.metric}
-                              </p>
-                              <p className="text-primary font-bold">
-                                {Math.round(payload[0].value as number)}%
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
                   <Info className="h-5 w-5 text-primary" />
                   Recommendation Details
                 </CardTitle>
@@ -468,9 +416,9 @@ const RecommendationDetails = () => {
                 ) : recommendation.explanation ? (
                   <div className="mt-2">
                     <span className="font-medium">Explanation:</span>
-                    <p className="text-muted-foreground mt-1">
-                      {recommendation.explanation}
-                    </p>
+                    <div className="prose prose-sm text-muted-foreground mt-1">
+                      <ReactMarkdown>{recommendation.explanation}</ReactMarkdown>
+                    </div>
                   </div>
                 ) : (
                   <div className="mt-2">
@@ -523,39 +471,94 @@ const RecommendationDetails = () => {
             </Card>
 
             {requirements.length > 0 && (
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-primary" />
-                    Entry Requirements
-                  </CardTitle>
-                  <CardDescription>
-                    Subject requirements for admission to this program
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {requirements.map((req, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-primary" />
-                          <span className="font-medium">
-                            {req.subjects?.subject_name}
-                          </span>
+              <>
+                <Card className="glass">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-primary" />
+                      Entry Requirements
+                    </CardTitle>
+                    <CardDescription>
+                      Subject requirements for admission to this program
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {requirements.map((req, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                            <span className="font-medium">
+                              {req.subjects?.subject_name}
+                            </span>
+                          </div>
+                          {req.requirement_detail && (
+                            <span className="text-sm text-muted-foreground">
+                              {req.requirement_detail}
+                            </span>
+                          )}
                         </div>
-                        {req.requirement_detail && (
-                          <span className="text-sm text-muted-foreground">
-                            {req.requirement_detail}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="glass">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-primary" />
+                      Score Breakdown
+                    </CardTitle>
+                    <CardDescription>
+                      Visual representation of recommendation metrics
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <RadarChart data={radarData}>
+                        <PolarGrid stroke="hsl(var(--border))" />
+                        <PolarAngleAxis 
+                          dataKey="metric" 
+                          tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                        />
+                        <PolarRadiusAxis 
+                          angle={90} 
+                          domain={[0, 100]}
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                        />
+                        <Radar
+                          name="Score"
+                          dataKey="value"
+                          stroke="hsl(var(--primary))"
+                          fill="hsl(var(--primary))"
+                          fillOpacity={0.3}
+                          strokeWidth={2}
+                        />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                  <p className="font-medium text-sm">
+                                    {payload[0].payload.metric}
+                                  </p>
+                                  <p className="text-primary font-bold">
+                                    {Math.round(payload[0].value as number)}%
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
         </div>
