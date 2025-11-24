@@ -99,21 +99,30 @@ class ExplanationGenerator:
         for driver in drivers_to_generate:
             snippet = self._get_llm_snippet(driver['type'], driver['prompt_data'], degree_program.program_name)
             print(f"Generated snippet for {driver['type']}: {snippet}")
-            if snippet:
-                key = driver['type']
-                snippets[key] = snippet
+            key = driver['type']
+            snippets[key] = snippet if snippet is not None else ""
 
-        # Assemble the final explanation using only relevant sections
+        # Map score keys to section names
+        score_to_section = {
+            "semantic_score": "semantic",
+            "subject_score": "subject",
+            "market_score": "market"
+        }
+
         explanation_parts = [self.HEADER_TEMPLATE.format(degree_name=degree_program.program_name)]
-        for section in ["semantic", "subject", "market"]:
-            if section in snippets:
-                explanation_parts.append(self.SECTION_TEMPLATES[section].format(**{f"snippet_{section}": snippets[section]}))
-        
+        # Add section headers for each high-score driver
+        for score_key, score_value in high_scores_dict.items():
+            section = score_to_section.get(score_key)
+            if section:
+                snippet_key = f"snippet_{section}"
+                section_text = self.SECTION_TEMPLATES[section].format(**{snippet_key: snippets.get(section, "")})
+                explanation_parts.append(section_text)
+
         if 'peer_score' in high_scores_dict:
             explanation_parts.append(self.SECTION_TEMPLATES["peers"])
 
         explanation_parts.append(self.FOOTER_TEMPLATE)
-        final_explanation = "\n".join(explanation_parts)
+        final_explanation = "\n\n".join(explanation_parts)
         return final_explanation
        
 

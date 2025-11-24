@@ -39,6 +39,8 @@ class PeerClustering:
                 df = df.drop(columns=[col])
         
         # Scale numerical features
+        # Ensure DataFrame has all selected features
+        df = df.reindex(columns=self.selected_features, fill_value=0)
         df_scaled = self.scaler.transform(df)
 
         # Select only the features used for training
@@ -75,18 +77,33 @@ class PeerClustering:
         """
         subject_grades = user.academic_data.subject_grades if user.academic_data and user.academic_data.subject_grades else []
         gender = getattr(user.socioeconomic, "gender", "") if user.socioeconomic else ""
+        gender = gender if gender is not None else ""
         if gender.lower() == "male":
             gender_val = "M"
         elif gender.lower() == "female":
             gender_val = "F"
         else:
-            gender_val = ""
-        fems_val = getattr(user.socioeconomic, "mother_education", "Does not know") if user.socioeconomic else "Does not know"
-        fefs_val = getattr(user.socioeconomic, "father_education", "Does not know") if user.socioeconomic else "Does not know"
+            gender_val = "M"  # Default to 'M' if unknown
+        fems_val = getattr(user.socioeconomic, "mother_education", "does not know") if user.socioeconomic else "does not know"
+        fefs_val = getattr(user.socioeconomic, "father_education", "does not know") if user.socioeconomic else "does not know"
+        fems_val = fems_val.lower()
+        fefs_val = fefs_val.lower()
+        
+        training_education_levels = [
+            'primary school complete', 'complete professional education',
+            'incomplete primary school', 'complete secondary school',
+            'incomplete secondary school', 'incomplete professional education',
+            'does not know', 'complete technical degree', 'postgraduate',
+            'incomplete technical degree', 'does not apply'
+        ]
+
+        fems_val = fems_val if fems_val in training_education_levels else "does not know"
+        fefs_val = fefs_val if fefs_val in training_education_levels else "does not know"
+
         funding_method = getattr(user.socioeconomic, "funding_method", "self") if user.socioeconomic else "self"
-        t_cred = 1 if funding_method == "credit" else 0
-        t_parents = 1 if funding_method == "parents" else 0
-        t_own = 1 if funding_method == "self" else 0
+        t_cred = 1 if funding_method.lower() == "credit" else 0
+        t_parents = 1 if funding_method.lower() == "parents" else 0
+        t_own = 1 if funding_method.lower() == "self" else 0
 
         data = {
             'ENG.HS': get_grade(subject_grades, "English"),

@@ -23,6 +23,7 @@ class ContentBasedFiltering:
         """
         self.background_tasks = background_tasks
         self._fit_encoders(subjects, industries)
+        self.db = None
 
     def _fit_encoders(self, subjects: list[Subject], industries: list[Industry]):
         """
@@ -75,8 +76,10 @@ class ContentBasedFiltering:
         if embeddings_to_save:
             if hasattr(self, 'background_tasks') and self.background_tasks is not None:
                 self.background_tasks.add_task(crud.save_embeddings_batch, self.db, 'personal_interests', embeddings_to_save)
-            else:
+            elif self.db is not None:
                 crud.save_embeddings_batch(self.db, 'personal_interests', embeddings_to_save)
+            else:
+                print("No DB session available to save personal interest embeddings.")
         if interest_embeddings:
             interest_vector = np.mean(interest_embeddings, axis=0)
         else:
@@ -154,13 +157,17 @@ class ContentBasedFiltering:
         if inds_embeddings_to_save:
             if hasattr(self, 'background_tasks') and self.background_tasks is not None:
                 self.background_tasks.add_task(crud.save_embeddings_batch, self.db, 'industries', inds_embeddings_to_save)
-            else:
+            elif self.db is not None:
                 crud.save_embeddings_batch(self.db, 'industries', inds_embeddings_to_save)
+            else:
+                print("No DB session available to save industry embeddings.")
         if desc_embeddings_to_save:
             if hasattr(self, 'background_tasks') and self.background_tasks is not None:
                 self.background_tasks.add_task(crud.save_embeddings_batch, self.db, 'degree_programs', desc_embeddings_to_save)
-            else:
+            elif self.db is not None:
                 crud.save_embeddings_batch(self.db, 'degree_programs', desc_embeddings_to_save)
+            else:
+                print("No DB session available to save description embeddings.")
         if desc_embeddings_to_save:
             crud.save_embeddings_batch(self.db, 'degree_programs', desc_embeddings_to_save)
 
