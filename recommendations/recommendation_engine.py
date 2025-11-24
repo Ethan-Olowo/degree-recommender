@@ -108,49 +108,36 @@ class RecommendationEngine:
         for recommendation in recommendations:
             recommendation.market_score = self.market_trend_analyzer.calculate_market_score(recommendation.degree_program)
 
-        recommendations = self.rank_recommendations(recommendations, weights=weights)
+        content_importance = self.get_content_importance(user)
+        market_importance = self.get_market_importance(user)
+
+        recommendations = self.rank_recommendations(recommendations, weights=weights, content_importance=content_importance, market_importance=market_importance)
         recommendations = recommendations[0:5]  # Limit to top 5 recommendations
 
         # Persist recommendations in DB and return DB objects
         db_recommendations = []
+        # Batch all recommendations and add as a single background task
+        recs_to_create = [
+            RecommendationCreate(
+                user_id=user.user_id,
+                program_id=rec_obj.degree_program.program_id,
+                confidence_score=rec_obj.confidence_score,
+                market_score=rec_obj.market_score,
+                explanation=rec_obj.explanation,
+                created_at=rec_obj.created_at,
+                liked=rec_obj.liked,
+                algorithm_source=rec_obj.algorithm_source,
+                subject_score=rec_obj.subject_score,
+                semantic_score=rec_obj.semantic_score,
+                peer_score=rec_obj.peer_score
+            )
+            for rec_obj in recommendations
+        ]
         if db is not None and background_tasks is not None:
-            # Batch all recommendations and add as a single background task
-            recs_to_create = [
-                RecommendationCreate(
-                    user_id=user.user_id,
-                    program_id=rec_obj.degree_program.program_id,
-                    confidence_score=rec_obj.confidence_score,
-                    market_score=rec_obj.market_score,
-                    explanation=rec_obj.explanation,
-                    created_at=rec_obj.created_at,
-                    liked=rec_obj.liked,
-                    algorithm_source=rec_obj.algorithm_source,
-                    subject_score=rec_obj.subject_score,
-                    semantic_score=rec_obj.semantic_score,
-                    peer_score=rec_obj.peer_score
-                )
-                for rec_obj in recommendations
-            ]
             if recs_to_create:
                 background_tasks.add_task(create_recommendations_batch, db, recs_to_create, user.user_id)
             return recommendations
         elif db is not None:
-            recs_to_create = [
-                RecommendationCreate(
-                    user_id=user.user_id,
-                    program_id=rec_obj.degree_program.program_id,
-                    confidence_score=rec_obj.confidence_score,
-                    market_score=rec_obj.market_score,
-                    explanation=rec_obj.explanation,
-                    created_at=rec_obj.created_at,
-                    liked=rec_obj.liked,
-                    algorithm_source=rec_obj.algorithm_source,
-                    subject_score=rec_obj.subject_score,
-                    semantic_score=rec_obj.semantic_score,
-                    peer_score=rec_obj.peer_score
-                )
-                for rec_obj in recommendations
-            ]
             if recs_to_create:
                 db_recommendations = create_recommendations_batch(db, recs_to_create, user.user_id)
             return db_recommendations
@@ -176,7 +163,7 @@ class RecommendationEngine:
         """
         return [program for program in self.degree_programs if program.category in categories]
     
-    def rank_recommendations(self, recommendations: list[Recommendation], weights: dict = None) -> list[Recommendation]:
+    def rank_recommendations(self, recommendations: list[Recommendation], weights: dict = None, content_importance: float = 1.0, market_importance: float = 1.0) -> list[Recommendation]:
         """
         Ranks recommendations based on a weighted score of confidence and market scores, using weights from DB.
         """
@@ -192,6 +179,14 @@ class RecommendationEngine:
             market_score_weight = weights.get('market_score_weight', 0.3)
             category_rank_weight = weights.get('category_rank_weight', 0.05)
 
+        confidence_score_weight *= content_importance
+        market_score_weight *= market_importance
+
+        total_weight = confidence_score_weight + market_score_weight + category_rank_weight
+        confidence_score_weight /= total_weight
+        market_score_weight /= total_weight
+        category_rank_weight /= total_weight
+
         weighted_scores = []
         for idx, rec in enumerate(recommendations):
             score = (
@@ -204,3 +199,32 @@ class RecommendationEngine:
         weighted_scores.sort(key=lambda x: x[0], reverse=True)
         recommendations = [rec for _, rec in weighted_scores]
         return recommendations
+    
+    def get_market_importance(self, user: User)->float:
+        """
+        Determines the importance of market trends based on user's socioeconomic status.
+        """
+        if user.socioeconomic and user.socioeconomic.income_level:
+            income_level = user.socioeconomic.income_level.lower()
+            if income_level == 'low':
+                return 1.5
+            elif income_level == 'medium':
+                return 1
+            elif income_level == 'high':
+                return 0.5
+        return 1  # Default importance
+    
+    def get_content_importance(self, user: User)->float:
+        """
+        Determines the importance of content-based factors based on amount of interests and academic performance.
+        """
+        interest_count = len(user.personal_interests) if user.personal_interests else 0
+        subject_count = len(user.academic_data.subject_grades) if user.academic_data and user.academic_data.subject_grades else 0
+        total_count = subject_count + interest_count
+        importance = 1
+        if total_count >= 10:
+            importance = 1.5
+        elif total_count <= 3:
+            importance = 0.5
+        
+        return importance
