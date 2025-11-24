@@ -35,8 +35,8 @@ def test_analyze_trends_filters_and_averages(sample_indicators, degree_program):
 def test_normalize_indicator_single_value():
     analyzer = MarketTrendAnalyzer([])
     # Single value normalization
-    norm = analyzer.normalize_indicator('Growth', 100.0, [100.0])
-    assert -0.5 <= norm <= 0.5
+    norm = analyzer.normalize_indicator('Growth', 0.10, [0.10])
+    assert 0 <= norm <=  1
 
 def test_normalize_indicator_multiple_values():
     analyzer = MarketTrendAnalyzer([])
