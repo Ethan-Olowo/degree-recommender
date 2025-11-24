@@ -196,13 +196,23 @@ const Profile = () => {
   const handleAddInterest = async () => {
     if (!newInterest.trim()) return;
 
+    // Split by comma, trim, and filter out empty strings
+    const interestsArray = newInterest
+      .split(',')
+      .map(i => i.trim())
+      .filter(i => i.length > 0);
+
+    if (interestsArray.length === 0) return;
+
     try {
+      const interestRecords = interestsArray.map(interest => ({
+        user_id: user?.id,
+        interest,
+      }));
+
       const { error } = await supabase
         .from('personal_interests')
-        .insert({
-          user_id: user?.id,
-          interest: newInterest.trim(),
-        });
+        .insert(interestRecords);
 
       if (error) throw error;
 
@@ -210,7 +220,7 @@ const Profile = () => {
       setNewInterest('');
       toast({
         title: 'Success',
-        description: 'Interest added successfully',
+        description: interestsArray.length > 1 ? 'Interests added successfully' : 'Interest added successfully',
       });
     } catch (error) {
       console.error('Error adding interest:', error);

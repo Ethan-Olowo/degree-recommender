@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,24 +39,75 @@ const ProfileCreate = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   
+
   const [formData, setFormData] = useState({
     // Academic
     gpa: '',
     gradeSystem: 'gpa',
     schoolType: 'public',
-    
+
     // Socioeconomic
     gender: '',
     incomeLevel: '',
-    countryCode: '',
+    countryCode: '', // will store country code
     fatherEducation: 'Does not know',
     motherEducation: 'Does not know',
     fundingMethod: 'self',
-    
+
     // Interests
     interests: [] as string[],
-    interestInput: ''
+    interestInput: '',
+
+    // Subject Grades
+    subjectGrades: [] as { subject_id: string; subject_name: string; grade: string }[],
+    selectedSubject: '',
+    newGrade: ''
   });
+
+  // Subjects state (simulate fetch, replace with DB fetch if needed)
+  const [availableSubjects, setAvailableSubjects] = useState<{ subject_id: string; subject_name: string }[]>([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+
+  // Fetch subjects from DB on mount (simulate, replace with supabase if needed)
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      setSubjectsLoading(true);
+      // Example: const { data, error } = await supabase.from('subjects').select('subject_id, subject_name');
+      // For now, use static subjects
+      setAvailableSubjects([
+        { subject_id: 'math', subject_name: 'Mathematics' },
+        { subject_id: 'eng', subject_name: 'English' },
+        { subject_id: 'sci', subject_name: 'Science' },
+        { subject_id: 'hist', subject_name: 'History' },
+        { subject_id: 'art', subject_name: 'Art' }
+      ]);
+      setSubjectsLoading(false);
+    };
+    fetchSubjects();
+  }, []);
+
+  // Countries state
+  const [countries, setCountries] = useState<{ country_code: string; country_name: string }[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(false);
+
+  // Fetch countries from DB on mount
+  useEffect(() => {
+    const fetchCountries = async () => {
+      setCountriesLoading(true);
+      const { data, error } = await supabase.from('countries').select('country_code, country_name');
+      if (!error && Array.isArray(data)) {
+        setCountries(
+          (data as any[]).filter(
+            (c) => typeof c.country_code === 'string' && typeof c.country_name === 'string'
+          )
+        );
+      } else {
+        setCountries([]);
+      }
+      setCountriesLoading(false);
+    };
+    fetchCountries();
+  }, []);
 
   const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;
@@ -74,13 +125,23 @@ const ProfileCreate = () => {
   };
 
   const handleAddInterest = () => {
-    if (formData.interestInput.trim() && formData.interests.length < 10) {
-      setFormData({
-        ...formData,
-        interests: [...formData.interests, formData.interestInput.trim()],
-        interestInput: ''
-      });
-    }
+    if (!formData.interestInput.trim() || formData.interests.length >= 10) return;
+
+    // Split by comma, trim, and filter out empty strings
+    const newInterests = formData.interestInput
+      .split(',')
+      .map(i => i.trim())
+      .filter(i => i.length > 0);
+
+    // Only add up to 10 interests total
+    const availableSlots = 10 - formData.interests.length;
+    const interestsToAdd = newInterests.slice(0, availableSlots);
+
+    setFormData({
+      ...formData,
+      interests: [...formData.interests, ...interestsToAdd],
+      interestInput: ''
+    });
   };
 
   const handleRemoveInterest = (index: number) => {
@@ -93,10 +154,8 @@ const ProfileCreate = () => {
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
-      
       // Get user_id
       const userData = { user_id: user?.id };
-
       if (!userData) {
         throw new Error('User not found');
       }
@@ -113,41 +172,49 @@ const ProfileCreate = () => {
         .select()
         .single();
 
+      // Create subject grades
+      if (formData.subjectGrades.length > 0 && academicData?.academic_data_id) {
+        const subjectGradeRecords = formData.subjectGrades.map(sg => ({
+          academic_data_id: academicData.academic_data_id,
+          subject_id: sg.subject_id,
+          grade: sg.grade
+        }));
+        await supabase
+          .from('subject_grades')
+          .insert(subjectGradeRecords);
+      }
 
-        // Create socioeconomic indicators
-        if (formData.gender || formData.incomeLevel || formData.countryCode || formData.fatherEducation || formData.motherEducation || formData.fundingMethod) {
-          await supabase
-            .from('socioeconomic_indicators')
-            .insert({
-              user_id: userData.user_id,
-              gender: formData.gender || null,
-              income_level: formData.incomeLevel || null,
-              country_code: formData.countryCode || null,
-              school_type: formData.schoolType || null,
-              father_education: formData.fatherEducation || 'Does not know',
-              mother_education: formData.motherEducation || 'Does not know',
-              funding_method: (formData.fundingMethod || 'self') as 'self' | 'parents' | 'credit'
-            });
-        }
-
-        // Create personal interests
-        if (formData.interests.length > 0) {
-          const interestRecords = formData.interests.map(interest => ({
+      // Create socioeconomic indicators
+      if (formData.gender || formData.incomeLevel || formData.countryCode || formData.fatherEducation || formData.motherEducation || formData.fundingMethod) {
+        await supabase
+          .from('socioeconomic_indicators')
+          .insert({
             user_id: userData.user_id,
-            interest
-          }));
-          
-          await supabase
-            .from('personal_interests')
-            .insert(interestRecords);
-        }
-      
+            gender: formData.gender || null,
+            income_level: formData.incomeLevel || null,
+            country_code: formData.countryCode || null,
+            school_type: formData.schoolType || null,
+            father_education: formData.fatherEducation || 'Does not know',
+            mother_education: formData.motherEducation || 'Does not know',
+            funding_method: (formData.fundingMethod || 'self') as 'self' | 'parents' | 'credit'
+          });
+      }
+
+      // Create personal interests
+      if (formData.interests.length > 0) {
+        const interestRecords = formData.interests.map(interest => ({
+          user_id: userData.user_id,
+          interest
+        }));
+        await supabase
+          .from('personal_interests')
+          .insert(interestRecords);
+      }
 
       toast({
         title: "Profile Created!",
         description: "Your profile has been successfully created. Generating recommendations...",
       });
-
       navigate('/dashboard');
     } catch (error) {
       console.error('Error creating profile:', error);
@@ -316,13 +383,22 @@ const ProfileCreate = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="country">Country (Optional)</Label>
-                    <Input
-                      id="country"
-                      placeholder="Enter country code (e.g., US, UK)"
+                    <Select
                       value={formData.countryCode}
-                      onChange={(e) => setFormData({ ...formData, countryCode: e.target.value.toUpperCase() })}
-                      maxLength={2}
-                    />
+                      onValueChange={(value) => setFormData({ ...formData, countryCode: value })}
+                      disabled={countriesLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={countriesLoading ? "Loading countries..." : "Select country"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {countries.map((country) => (
+                          <SelectItem key={country.country_code} value={country.country_code}>
+                            {country.country_name} ({country.country_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
@@ -438,7 +514,7 @@ const ProfileCreate = () => {
                 </div>
               )}
 
-              {/* Step 4: Review */}
+              {/* Step 4: Review & Subject Grades */}
               {currentStep === 4 && (
                 <div className="space-y-4">
                   <div className="space-y-3">
@@ -449,19 +525,111 @@ const ProfileCreate = () => {
                       <p>School Type: {formData.schoolType}</p>
                     </div>
                   </div>
-                  
+
+                  {/* Subject Grades Section */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Subject Grades</h3>
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={formData.selectedSubject}
+                        onValueChange={(value) => setFormData(f => ({ ...f, selectedSubject: value }))}
+                        disabled={subjectsLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={subjectsLoading ? "Loading subjects..." : "Select subject"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSubjects.map(subject => (
+                            <SelectItem key={subject.subject_id} value={subject.subject_id}>
+                              {subject.subject_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder="Grade"
+                        value={formData.newGrade}
+                        onChange={e => setFormData(f => ({ ...f, newGrade: e.target.value }))}
+                        className="w-24"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            formData.selectedSubject &&
+                            formData.newGrade.trim() &&
+                            !formData.subjectGrades.some(sg => sg.subject_id === formData.selectedSubject)
+                          ) {
+                            const subjectObj = availableSubjects.find(s => s.subject_id === formData.selectedSubject);
+                            if (subjectObj) {
+                              setFormData(f => ({
+                                ...f,
+                                subjectGrades: [
+                                  ...f.subjectGrades,
+                                  {
+                                    subject_id: subjectObj.subject_id,
+                                    subject_name: subjectObj.subject_name,
+                                    grade: formData.newGrade.trim()
+                                  }
+                                ],
+                                selectedSubject: '',
+                                newGrade: ''
+                              }));
+                            }
+                          }
+                        }}
+                        disabled={
+                          !formData.selectedSubject ||
+                          !formData.newGrade.trim() ||
+                          formData.subjectGrades.some(sg => sg.subject_id === formData.selectedSubject)
+                        }
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    {formData.subjectGrades.length > 0 ? (
+                      <div className="space-y-2 mt-2">
+                        {formData.subjectGrades.map((sg, idx) => (
+                          <div key={sg.subject_id} className="flex items-center justify-between bg-muted rounded px-3 py-2">
+                            <span className="font-medium">{sg.subject_name}</span>
+                            <span className="text-sm">Grade: {sg.grade}</span>
+                            <button
+                              className="text-destructive ml-2"
+                              onClick={() => setFormData(f => ({
+                                ...f,
+                                subjectGrades: f.subjectGrades.filter((_, i) => i !== idx)
+                              }))}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm mt-2">No subject grades added yet.</p>
+                    )}
+                  </div>
+
                   <div className="space-y-3">
                     <h3 className="font-semibold">Personal Information</h3>
                     <div className="text-sm space-y-1 text-muted-foreground">
                       {formData.gender && <p>Gender: {formData.gender}</p>}
                       {formData.incomeLevel && <p>Income Level: {formData.incomeLevel}</p>}
-                      {formData.countryCode && <p>Country: {formData.countryCode}</p>}
+                      {formData.countryCode && (
+                        <p>
+                          Country: {
+                            countries.find(c => c.country_code === formData.countryCode)?.country_name || formData.countryCode
+                          }
+                          {' '}
+                          ({formData.countryCode})
+                        </p>
+                      )}
                       {formData.fatherEducation && <p>Father's Education: {formData.fatherEducation}</p>}
                       {formData.motherEducation && <p>Mother's Education: {formData.motherEducation}</p>}
                       {formData.fundingMethod && <p>Funding Method: {formData.fundingMethod}</p>}
                     </div>
                   </div>
-                  
+
                   {formData.interests.length > 0 && (
                     <div className="space-y-3">
                       <h3 className="font-semibold">Interests</h3>
