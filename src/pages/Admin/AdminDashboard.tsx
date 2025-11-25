@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
-import { Users, GraduationCap, TrendingUp, Settings, BarChart3, Database, Shield, Activity, Home, FileText, ChevronDown, Sliders, Building2, BookOpen, ThumbsUp, Target, Brain } from 'lucide-react';
+import { Users, GraduationCap, TrendingUp, Settings, BarChart3, Database, Shield, Activity, Home, FileText, ChevronDown, Sliders, Building2, BookOpen, ThumbsUp, Target, Brain, Zap } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -138,6 +138,21 @@ const AdminDashboard = () => {
     },
   ];
 
+  const managementLinks = [
+    { title: 'Manage Degrees', href: '/admin/degrees', icon: GraduationCap, description: 'Add, edit, and organize degree programs' },
+    { title: 'Manage Subjects', href: '/admin/subjects', icon: BookOpen, description: 'Manage subjects and requirements' },
+    { title: 'Manage Industries', href: '/admin/industries', icon: Building2, description: 'Configure industry data' },
+    { title: 'Manage Algorithms', href: '/admin/algorithms', icon: Brain, description: 'Configure recommendation algorithms' },
+  ];
+
+  const reportLinks = [
+    { title: 'Recommendations & Algorithms', href: '/admin/reports/recommendations', icon: ThumbsUp, description: 'View recommendation performance' },
+    { title: 'Market Insights', href: '/admin/reports/market', icon: TrendingUp, description: 'Analyze market trends' },
+    { title: 'Degrees & Industries', href: '/admin/reports/degrees', icon: BarChart3, description: 'Program distribution insights' },
+    { title: 'Users & Demographics', href: '/admin/reports/users', icon: Users, description: 'User statistics and demographics' },
+    { title: 'API Performance', href: '/admin/reports/api-performance', icon: Zap, description: 'API logs, performance, and errors' },
+  ];
+
 
   return (
     <ProtectedRoute requireAdmin>
@@ -201,6 +216,48 @@ const AdminDashboard = () => {
               </Link>
             ))}
           </div>
+
+          {/* Management Actions */}
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Management</CardTitle>
+              <CardDescription>Configure system data and settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {managementLinks.map((link) => (
+                  <Link key={link.href} to={link.href}>
+                    <div className="p-4 rounded-lg border border-border bg-card hover:bg-accent/10 transition-colors card-hover h-full">
+                      <link.icon className="h-6 w-6 text-primary mb-2" />
+                      <h3 className="font-semibold mb-1">{link.title}</h3>
+                      <p className="text-xs text-muted-foreground">{link.description}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Reports Section */}
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Reports & Analytics</CardTitle>
+              <CardDescription>Detailed insights and analytics reports</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {reportLinks.map((link) => (
+                  <Link key={link.href} to={link.href}>
+                    <div className="p-4 rounded-lg border border-border bg-card hover:bg-accent/10 transition-colors card-hover h-full">
+                      <link.icon className="h-6 w-6 text-accent mb-2" />
+                      <h3 className="font-semibold mb-1">{link.title}</h3>
+                      <p className="text-xs text-muted-foreground">{link.description}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Quick Insights */}
           {!isLoading && stats.programsByCategory.length > 0 && (

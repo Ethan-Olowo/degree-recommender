@@ -27,6 +27,7 @@ import UsersDemographicsReports from "./pages/Admin/UsersDemographicsReports";
 import ManageSubjects from "./pages/Admin/ManageSubjects";
 import ManageIndustries from "./pages/Admin/ManageIndustries";
 import ManageAlgorithms from "./pages/Admin/ManageAlgorithms";
+import APIPerformanceReports from "./pages/Admin/APIPerformanceReports";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const AppRoutes = () => {
   <Route path="/admin/reports/market" element={<MarketInsightsReports />} />
   <Route path="/admin/reports/degrees" element={<DegreesIndustriesReports />} />
   <Route path="/admin/reports/users" element={<UsersDemographicsReports />} />
+  <Route path="/admin/reports/api-performance" element={<APIPerformanceReports />} />
 
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
