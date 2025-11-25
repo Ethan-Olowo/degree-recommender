@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { GraduationCap, Sparkles, BookOpen, Target, Briefcase, X, Plus, ArrowRight, CircleCheck as CheckCircle2, CircleMinus as MinusCircle } from 'lucide-react';
 import {

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Layout } from "@/components/Layout";
+import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import {
   GraduationCap,
@@ -41,6 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CyclingLoader } from "@/components/CyclingLoader";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { FloatingChat } from "@/components/FloatingChat";
 
 interface Recommendation {
   recommendation_id: string;
@@ -404,13 +405,19 @@ const RecommendationDetails = () => {
                 {isGeneratingExplanation ? (
                   <div className="mt-4 p-6 bg-muted/50 rounded-lg">
                     <CyclingLoader
-                      phrases={[
-                        "Examining your interests and strengths…",
-                        "Comparing program requirements with your profile…",
-                        "Considering job market trends…",
-                        "Generating a personalized explanation for you…",
+                      phrases={ [
+                        "Analyzing your academic performance and interests...",
+                        "Reviewing the subjects required for this program...",
+                        "Checking how this program aligns with your strengths...",
+                        "Looking at how students like you have succeeded in this program...",
+                        "Examining career opportunities linked to this degree...",
+                        "Considering market trends for your country...",
+                        "Creating a personalized explanation for this recommendation...",
+                        "Highlighting why this program is a great fit for you...",
+                        "Summarizing the key reasons behind this recommendation...",
+                        "Finalizing your explanation—almost ready!"
                       ]}
-                      intervalMs={1600}
+                      intervalMs={5000}
                     />
                   </div>
                 ) : recommendation.explanation ? (
@@ -563,6 +570,7 @@ const RecommendationDetails = () => {
           </div>
         </div>
       </div>
+      <FloatingChat recommendations={recommendation ? [recommendation] : []} userId={user?.id || ''} />
     </Layout>
   );
 };

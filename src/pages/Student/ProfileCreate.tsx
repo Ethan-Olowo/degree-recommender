@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,17 +72,27 @@ const ProfileCreate = () => {
   useEffect(() => {
     const fetchSubjects = async () => {
       setSubjectsLoading(true);
-      // Example: const { data, error } = await supabase.from('subjects').select('subject_id, subject_name');
-      // For now, use static subjects
-      setAvailableSubjects([
-        { subject_id: 'math', subject_name: 'Mathematics' },
-        { subject_id: 'eng', subject_name: 'English' },
-        { subject_id: 'sci', subject_name: 'Science' },
-        { subject_id: 'hist', subject_name: 'History' },
-        { subject_id: 'art', subject_name: 'Art' }
-      ]);
-      setSubjectsLoading(false);
+      try {
+        const { data, error } = await supabase.from('subjects').select('subject_id, subject_name');
+        if (error) throw error;
+
+        if (Array.isArray(data)) {
+          setAvailableSubjects(
+            data.filter(
+              (subject) => typeof subject.subject_id === 'string' && typeof subject.subject_name === 'string'
+            )
+          );
+        } else {
+          setAvailableSubjects([]);
+        }
+      } catch (error) {
+        console.error('Error fetching subjects:', error);
+        setAvailableSubjects([]);
+      } finally {
+        setSubjectsLoading(false);
+      }
     };
+
     fetchSubjects();
   }, []);
 
@@ -109,7 +119,7 @@ const ProfileCreate = () => {
     fetchCountries();
   }, []);
 
-  const totalSteps = 4;
+  const totalSteps = 5; // Updated total steps to include the new "Subject Grades" step
   const progress = (currentStep / totalSteps) * 100;
 
   const handleNext = () => {
@@ -154,74 +164,92 @@ const ProfileCreate = () => {
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
-      // Get user_id
       const userData = { user_id: user?.id };
-      if (!userData) {
+      if (!userData.user_id) {
         throw new Error('User not found');
       }
 
-      // Create academic data
-      const { data: academicData } = await supabase
+      const { data: academicData, error: academicError } = await supabase
         .from('academic_data')
         .insert({
           user_id: userData.user_id,
           gpa: formData.gpa ? parseFloat(formData.gpa) : null,
           grade_system: formData.gradeSystem || null,
-          school_type: formData.schoolType || null
+          school_type: formData.schoolType || null,
         })
         .select()
         .single();
 
-      // Create subject grades
-      if (formData.subjectGrades.length > 0 && academicData?.academic_data_id) {
-        const subjectGradeRecords = formData.subjectGrades.map(sg => ({
-          academic_data_id: academicData.academic_data_id,
-          subject_id: sg.subject_id,
-          grade: sg.grade
-        }));
-        await supabase
-          .from('subject_grades')
-          .insert(subjectGradeRecords);
+      if (academicError || !academicData) {
+        throw new Error('Failed to save academic data');
       }
 
-      // Create socioeconomic indicators
-      if (formData.gender || formData.incomeLevel || formData.countryCode || formData.fatherEducation || formData.motherEducation || formData.fundingMethod) {
-        await supabase
-          .from('socioeconomic_indicators')
-          .insert({
-            user_id: userData.user_id,
-            gender: formData.gender || null,
-            income_level: formData.incomeLevel || null,
-            country_code: formData.countryCode || null,
-            school_type: formData.schoolType || null,
-            father_education: formData.fatherEducation || 'Does not know',
-            mother_education: formData.motherEducation || 'Does not know',
-            funding_method: (formData.fundingMethod || 'self') as 'self' | 'parents' | 'credit'
-          });
+      if (formData.subjectGrades.length > 0) {
+        const subjectGradeRecords = formData.subjectGrades.map((sg) => {
+          const subject = availableSubjects.find((subj) => subj.subject_name === sg.subject_name);
+          if (!subject) {
+            throw new Error(`Subject ID not found for subject name: ${sg.subject_name}`);
+          }
+          return {
+            academic_data_id: academicData.academic_data_id,
+            subject_id: subject.subject_id,
+            grade: sg.grade,
+          };
+        });
+
+        const { error: subjectGradesError } = await supabase.from('subject_grades').insert(subjectGradeRecords);
+        if (subjectGradesError) {
+          throw new Error('Failed to save subject grades');
+        }
       }
 
-      // Create personal interests
-      if (formData.interests.length > 0) {
-        const interestRecords = formData.interests.map(interest => ({
+      if (
+        formData.gender ||
+        formData.incomeLevel ||
+        formData.countryCode ||
+        formData.fatherEducation ||
+        formData.motherEducation ||
+        formData.fundingMethod
+      ) {
+        const { error: socioeconomicError } = await supabase.from('socioeconomic_indicators').insert({
           user_id: userData.user_id,
-          interest
+          gender: formData.gender || null,
+          income_level: formData.incomeLevel || null,
+          country_code: formData.countryCode || null,
+          school_type: formData.schoolType || null,
+          father_education: formData.fatherEducation || 'Does not know',
+          mother_education: formData.motherEducation || 'Does not know',
+          funding_method: (formData.fundingMethod || 'self') as 'self' | 'parents' | 'credit',
+        });
+
+        if (socioeconomicError) {
+          throw new Error('Failed to save socioeconomic indicators');
+        }
+      }
+
+      if (formData.interests.length > 0) {
+        const interestRecords = formData.interests.map((interest) => ({
+          user_id: userData.user_id,
+          interest,
         }));
-        await supabase
-          .from('personal_interests')
-          .insert(interestRecords);
+
+        const { error: interestsError } = await supabase.from('personal_interests').insert(interestRecords);
+        if (interestsError) {
+          throw new Error('Failed to save personal interests');
+        }
       }
 
       toast({
-        title: "Profile Created!",
-        description: "Your profile has been successfully created. Generating recommendations...",
+        title: 'Profile Created!',
+        description: 'Your profile has been successfully created. Generating recommendations...',
       });
       navigate('/dashboard');
     } catch (error) {
       console.error('Error creating profile:', error);
       toast({
-        title: "Error",
-        description: "Failed to create profile. Please try again.",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to create profile. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -232,7 +260,8 @@ const ProfileCreate = () => {
     { number: 1, title: 'Academic', icon: BookOpen },
     { number: 2, title: 'Personal', icon: User },
     { number: 3, title: 'Interests', icon: Target },
-    { number: 4, title: 'Review', icon: Check }
+    { number: 4, title: 'Subject Grades', icon: Globe }, // Added new step for Subject Grades
+    { number: 5, title: 'Review', icon: Check }
   ];
 
   return (
@@ -283,7 +312,8 @@ const ProfileCreate = () => {
                 {currentStep === 1 && "Tell us about your academic performance"}
                 {currentStep === 2 && "Provide some personal information"}
                 {currentStep === 3 && "What are your interests and career goals?"}
-                {currentStep === 4 && "Review your information before submitting"}
+                {currentStep === 4 && "Add your subject grades"} {/* Description for Subject Grades */}
+                {currentStep === 5 && "Review your information before submitting"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -514,19 +544,9 @@ const ProfileCreate = () => {
                 </div>
               )}
 
-              {/* Step 4: Review & Subject Grades */}
+              {/* Step 4: Subject Grades */}
               {currentStep === 4 && (
                 <div className="space-y-4">
-                  <div className="space-y-3">
-                    <h3 className="font-semibold">Academic Information</h3>
-                    <div className="text-sm space-y-1 text-muted-foreground">
-                      {formData.gpa && <p>GPA: {formData.gpa}</p>}
-                      <p>Grade System: {formData.gradeSystem}</p>
-                      <p>School Type: {formData.schoolType}</p>
-                    </div>
-                  </div>
-
-                  {/* Subject Grades Section */}
                   <div className="space-y-3">
                     <h3 className="font-semibold">Subject Grades</h3>
                     <div className="flex gap-2 items-center">
@@ -607,6 +627,36 @@ const ProfileCreate = () => {
                       </div>
                     ) : (
                       <p className="text-muted-foreground text-sm mt-2">No subject grades added yet.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 5: Review */}
+              {currentStep === 5 && (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Academic Information</h3>
+                    <div className="text-sm space-y-1 text-muted-foreground">
+                      {formData.gpa && <p>GPA: {formData.gpa}</p>}
+                      <p>Grade System: {formData.gradeSystem}</p>
+                      <p>School Type: {formData.schoolType}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Subject Grades</h3>
+                    {formData.subjectGrades.length > 0 ? (
+                      <div className="space-y-2">
+                        {formData.subjectGrades.map((sg) => (
+                          <div key={sg.subject_id} className="flex items-center justify-between bg-muted rounded px-3 py-2">
+                            <span className="font-medium">{sg.subject_name}</span>
+                            <span className="text-sm">Grade: {sg.grade}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No subject grades added.</p>
                     )}
                   </div>
 

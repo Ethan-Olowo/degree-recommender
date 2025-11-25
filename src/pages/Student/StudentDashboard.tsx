@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Layout } from "@/components/Layout";
+import Layout from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +57,6 @@ const StudentDashboard = () => {
   const [studentName, setStudentName] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
 
-
   useEffect(() => {
     if (user) {
       fetchDashboardData();
@@ -68,7 +67,10 @@ const StudentDashboard = () => {
     setIsLoading(true);
     try {
       // Call the Postgres function via Supabase RPC
-      const { data, error } = await (supabase.rpc as any)('get_student_dashboard_data', { p_user_id: user?.id });
+      const { data, error } = await (supabase.rpc as any)(
+        "get_student_dashboard_data",
+        { p_user_id: user?.id }
+      );
       if (error) throw error;
       if (!data) return;
 
@@ -78,8 +80,12 @@ const StudentDashboard = () => {
       // Profile completion calculation
       let totalItems = 0;
       const profile = data.profile_data || {};
-      const interests = Array.isArray(profile.interests) ? profile.interests : [];
-      const subjectGrades = Array.isArray(profile.subject_grades) ? profile.subject_grades : [];
+      const interests = Array.isArray(profile.interests)
+        ? profile.interests
+        : [];
+      const subjectGrades = Array.isArray(profile.subject_grades)
+        ? profile.subject_grades
+        : [];
       const socio = profile.socioeconomic || {};
       const academic = profile.academic_data || {};
 
@@ -113,15 +119,17 @@ const StudentDashboard = () => {
 
       // Set recommendations
       const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
-      // Sort by confidence_score descending
-      const sorted = recs.sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
-      setRecommendations(sorted);
+      setRecommendations(recs);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const sortedRecommendations = recommendations.sort(
+    (a, b) => (b.confidence_score || 0) - (a.confidence_score || 0)
+  );
 
   const getScoreColor = (score: number) => {
     const percent = score * 100;
@@ -132,7 +140,7 @@ const StudentDashboard = () => {
 
   const handleGenerateRecommendations = async () => {
     if (!user?.id) return;
-    
+
     setIsGenerating(true);
     try {
       const response = await fetch(
@@ -140,7 +148,7 @@ const StudentDashboard = () => {
       );
 
       const data = await response.json();
-      
+
       // Transform the API response to match our component's interface
       const transformedRecs = data.map((rec: any) => ({
         recommendation_id: rec.recommendation_id,
@@ -152,7 +160,7 @@ const StudentDashboard = () => {
           program_name: rec.degree_program.program_name,
           program_type: rec.degree_program.program_type,
           description: rec.degree_program.description,
-        }
+        },
       }));
 
       setRecommendations(transformedRecs);
@@ -161,7 +169,7 @@ const StudentDashboard = () => {
         description: "Your personalized recommendations have been generated.",
       });
     } catch (error) {
-      console.error('Error generating recommendations:', error);
+      console.error("Error generating recommendations:", error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -179,11 +187,8 @@ const StudentDashboard = () => {
           {/* Welcome Section */}
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold">
-              Welcome back,{' '}
-              <span className="gradient-text">
-                {studentName}
-              </span>
-              !
+              Welcome back,{" "}
+              <span className="gradient-text">{studentName}</span>!
             </h1>
             <p className="text-lg text-muted-foreground">
               Here's your personalized degree recommendations dashboard
@@ -213,6 +218,8 @@ const StudentDashboard = () => {
               </CardContent>
             </Card>
           )}
+
+          
 
           {/* Quick Stats */}
           {profileCompletion < 100 && (
@@ -258,15 +265,13 @@ const StudentDashboard = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Your Top Recommendations</h2>
               {profileData?.academic_data && recommendations.length > 0 && (
-                <Button variant="outline" onClick={handleGenerateRecommendations} disabled={isGenerating}>
+                <Button
+                  variant="outline"
+                  onClick={handleGenerateRecommendations}
+                  disabled={isGenerating}
+                >
                   <Sparkles className="h-4 w-4" />
                   Regenerate Recommendations
-                </Button>
-              )}
-              {profileData?.academic_data && recommendations.length === 0 && !isGenerating && (
-                <Button variant="gradient" onClick={handleGenerateRecommendations}>
-                  <Sparkles className="h-4 w-4" />
-                  Generate Recommendations
                 </Button>
               )}
               {!profileData?.academic_data && (
@@ -298,24 +303,31 @@ const StudentDashboard = () => {
                 <CardContent className="p-12">
                   <CyclingLoader
                     phrases={[
-                      "Analyzing your academic profile…",
-                      "Reviewing current job market data…",
-                      "Matching your strengths with degree programs…",
-                      "Evaluating compatibility with industry trends…",
-                      "Generating personalized degree recommendations…"
+                      "Grouping you with similar students to personalize your results...",
+                      "Checking out all the degree programs available for you...",
+                      "Looking at your interests and strengths to find the best matches...",
+                      "Narrowing down options based on what fits you best...",
+                      "Scoring programs to see which ones suit you the most...",
+                      "Considering your best subjects to refine the choices...",
+                      "Looking at job market trends to find in-demand careers...",
+                      "Ranking the best programs just for you...",
+                      "Picking the top 5 programs that match your goals...",
+                      "Getting everything ready—your recommendations are almost here!",
                     ]}
                     intervalMs={1800}
                   />
                 </CardContent>
               </Card>
-            ) : recommendations.length > 0 ? (
+            ) : sortedRecommendations.length > 0 ? (
               <>
                 {/* Top Recommendation Full Width */}
                 <div className="mb-6">
                   {(() => {
-                    const rec = recommendations[0];
+                    const rec = sortedRecommendations[0];
                     if (!rec) return null;
-                    const confidencePercent = Math.round((rec.confidence_score || 0) * 100);
+                    const confidencePercent = Math.round(
+                      (rec.confidence_score || 0) * 100
+                    );
                     const marketPercent = Math.round((rec.market_score || 0) * 100);
                     return (
                       <Card
@@ -336,7 +348,9 @@ const StudentDashboard = () => {
                             <div className="flex items-center gap-1">
                               <Sparkles className="h-4 w-4 text-primary" />
                               <span
-                                className={`text-sm font-bold ${getScoreColor(rec.confidence_score)}`}
+                                className={`text-sm font-bold ${getScoreColor(
+                                  rec.confidence_score
+                                )}`}
                               >
                                 {confidencePercent}%
                               </span>
@@ -380,8 +394,10 @@ const StudentDashboard = () => {
                 </div>
                 {/* Next 4 Recommendations in 2x2 Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {recommendations.slice(1, 5).map((rec, index) => {
-                    const confidencePercent = Math.round((rec.confidence_score || 0) * 100);
+                  {sortedRecommendations.slice(1, 5).map((rec, index) => {
+                    const confidencePercent = Math.round(
+                      (rec.confidence_score || 0) * 100
+                    );
                     const marketPercent = Math.round((rec.market_score || 0) * 100);
                     return (
                       <Card
@@ -402,7 +418,9 @@ const StudentDashboard = () => {
                             <div className="flex items-center gap-1">
                               <Sparkles className="h-4 w-4 text-primary" />
                               <span
-                                className={`text-sm font-bold ${getScoreColor(rec.confidence_score)}`}
+                                className={`text-sm font-bold ${getScoreColor(
+                                  rec.confidence_score
+                                )}`}
                               >
                                 {confidencePercent}%
                               </span>
@@ -455,20 +473,35 @@ const StudentDashboard = () => {
                     <h3 className="text-xl font-semibold">
                       No Recommendations Yet
                     </h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Complete your profile to get personalized degree
-                      recommendations based on your academic background and
-                      interests.
-                    </p>
-                    <Link
-                      to={
-                        profileData?.academic_data
-                          ? "/profile"
-                          : "/profile/create"
-                      }
-                    >
-                      <Button variant="gradient">Complete Your Profile</Button>
-                    </Link>
+                    {profileCompletion >= 100 ? (
+                      <>
+                        <p className="text-muted-foreground max-w-md mx-auto">
+                          Your profile is complete! Click below to generate personalized degree recommendations.
+                        </p>
+                        <Button
+                          variant="gradient"
+                          onClick={handleGenerateRecommendations}
+                          disabled={isGenerating}
+                        >
+                          Generate Recommendations
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-muted-foreground max-w-md mx-auto">
+                          Complete your profile to get personalized degree recommendations based on your academic background and interests.
+                        </p>
+                        <Link
+                          to={
+                            profileData?.academic_data
+                              ? "/profile"
+                              : "/profile/create"
+                          }
+                        >
+                          <Button variant="gradient">Complete Your Profile</Button>
+                        </Link>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -520,7 +553,7 @@ const StudentDashboard = () => {
             </Link>
           </div>
         </div>
-        <FloatingChat recommendations={recommendations} />
+        <FloatingChat recommendations={sortedRecommendations} userId={user?.id || ''} />
       </Layout>
     </ProtectedRoute>
   );

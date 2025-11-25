@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -487,11 +487,14 @@ const Profile = () => {
 
           {/* Profile Tabs */}
           <Tabs defaultValue="basic" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="socioeconomic">Socioeconomic</TabsTrigger>
-              <TabsTrigger value="interests">Interests</TabsTrigger>
-              <TabsTrigger value="grades">Grades</TabsTrigger>
+            <TabsList
+              className="flex flex-wrap w-full gap-2 justify-center items-center"
+              style={{ minWidth: 0,  minHeight: 'fit-content' }}
+            >
+              <TabsTrigger value="basic" className="flex-1 min-w-[120px] max-w-full">Basic Info</TabsTrigger>
+              <TabsTrigger value="socioeconomic" className="flex-1 min-w-[120px] max-w-full">Socioeconomic</TabsTrigger>
+              <TabsTrigger value="interests" className="flex-1 min-w-[120px] max-w-full">Interests</TabsTrigger>
+              <TabsTrigger value="grades" className="flex-1 min-w-[120px] max-w-full">Grades</TabsTrigger>
             </TabsList>
 
             {/* Basic Info Tab */}

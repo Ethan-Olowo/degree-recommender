@@ -9,7 +9,7 @@ import {
 } from "../../components/ui/card";
 import { Table, TableHeader, TableRow, TableBody, TableCell } from "../../components/ui/table";
 import { Button } from "../../components/ui/button";
-import { Layout } from "../../components/Layout";
+import Layout from "../../components/Layout";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import { Settings } from "lucide-react";
 import { BarChart, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, ScatterChart, Scatter, Bar, Line } from "recharts";

@@ -9,7 +9,7 @@ interface CyclingLoaderProps {
 
 export const CyclingLoader = ({ 
   phrases, 
-  intervalMs = 1800,
+  intervalMs = 5000,
   className 
 }: CyclingLoaderProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);

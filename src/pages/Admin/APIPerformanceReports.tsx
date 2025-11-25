@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
@@ -89,7 +89,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accen
 const APIPerformanceReports = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Filters
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -103,46 +103,19 @@ const APIPerformanceReports = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [dateFrom, dateTo, statusCodeFilter, endpointFilter, httpMethodFilter]);
+  }, []);
 
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
-      let query = supabase
+      const { data: fetchedData, error: fetchError } = await supabase
         .from('activity_logs')
         .select('*, log_errors(error_message)')
         .order('created_at', { ascending: false });
 
-      // Apply filters
-      if (dateFrom) {
-        query = query.gte('created_at', dateFrom);
-      }
-      if (dateTo) {
-        query = query.lte('created_at', dateTo);
-      }
-      if (statusCodeFilter !== 'all') {
-        if (statusCodeFilter === '2xx') {
-          query = query.gte('status_code', 200).lt('status_code', 300);
-        } else if (statusCodeFilter === '3xx') {
-          query = query.gte('status_code', 300).lt('status_code', 400);
-        } else if (statusCodeFilter === '4xx') {
-          query = query.gte('status_code', 400).lt('status_code', 500);
-        } else if (statusCodeFilter === '5xx') {
-          query = query.gte('status_code', 500).lt('status_code', 600);
-        }
-      }
-      if (endpointFilter !== 'all') {
-        query = query.eq('endpoint', endpointFilter);
-      }
-      if (httpMethodFilter !== 'all') {
-        query = query.eq('http_method_id', httpMethodFilter);
-      }
+      if (fetchError) throw fetchError;
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      const logsData = data || [];
+      const logsData = fetchedData || [];
       setLogs(logsData);
 
       // Extract unique endpoints and methods for filters
@@ -157,20 +130,36 @@ const APIPerformanceReports = () => {
     }
   };
 
+  // Filtered logs based on user-selected filters
+  const filteredLogs = logs.filter((log) => {
+    const matchesDateFrom = !dateFrom || new Date(log.created_at || '') >= new Date(dateFrom);
+    const matchesDateTo = !dateTo || new Date(log.created_at || '') <= new Date(dateTo);
+    const matchesStatusCode =
+      statusCodeFilter === 'all' ||
+      (statusCodeFilter === '2xx' && log.status_code >= 200 && log.status_code < 300) ||
+      (statusCodeFilter === '3xx' && log.status_code >= 300 && log.status_code < 400) ||
+      (statusCodeFilter === '4xx' && log.status_code >= 400 && log.status_code < 500) ||
+      (statusCodeFilter === '5xx' && log.status_code >= 500 && log.status_code < 600);
+    const matchesEndpoint = endpointFilter === 'all' || log.endpoint === endpointFilter;
+    const matchesHttpMethod = httpMethodFilter === 'all' || log.http_method_id === httpMethodFilter;
+
+    return matchesDateFrom && matchesDateTo && matchesStatusCode && matchesEndpoint && matchesHttpMethod;
+  });
+
   // Compute summary stats
   const summaryStats: SummaryStats = {
-    totalRequests: logs.length,
-    totalErrors: logs.filter(log => log.status_code >= 400).length,
-    avgExecutionTime: logs.length > 0 
-      ? logs.reduce((sum, log) => sum + log.execution_time_ms, 0) / logs.length
+    totalRequests: filteredLogs.length,
+    totalErrors: filteredLogs.filter(log => log.status_code >= 400).length,
+    avgExecutionTime: filteredLogs.length > 0
+      ? filteredLogs.reduce((sum, log) => sum + log.execution_time_ms, 0) / filteredLogs.length
       : 0,
-    uniqueEndpoints: new Set(logs.map(log => log.endpoint)).size,
+    uniqueEndpoints: new Set(filteredLogs.map(log => log.endpoint)).size,
   };
 
   // Performance over time (grouped by day)
   const performanceOverTime: PerformanceOverTime[] = (() => {
     const grouped: { [date: string]: { total: number; count: number } } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       if (log.created_at) {
         const date = log.created_at.split('T')[0];
         if (!grouped[date]) {
@@ -191,7 +180,7 @@ const APIPerformanceReports = () => {
   // Slowest endpoints (top 10)
   const slowestEndpoints: EndpointStats[] = (() => {
     const grouped: { [endpoint: string]: { total: number; count: number } } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       if (!grouped[log.endpoint]) {
         grouped[log.endpoint] = { total: 0, count: 0 };
       }
@@ -210,7 +199,7 @@ const APIPerformanceReports = () => {
   // Request volume per endpoint
   const requestVolumePerEndpoint: EndpointStats[] = (() => {
     const grouped: { [endpoint: string]: number } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       grouped[log.endpoint] = (grouped[log.endpoint] || 0) + 1;
     });
     return Object.entries(grouped)
@@ -225,7 +214,7 @@ const APIPerformanceReports = () => {
   // HTTP methods distribution
   const httpMethodDistribution: HttpMethodDistribution[] = (() => {
     const grouped: { [method: string]: number } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       const method = log.http_method_id || 'UNKNOWN';
       grouped[method] = (grouped[method] || 0) + 1;
     });
@@ -235,7 +224,7 @@ const APIPerformanceReports = () => {
   // Status code distribution
   const statusCodeDistribution: StatusCodeDistribution[] = (() => {
     const grouped: { [range: string]: number } = { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 };
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       const code = log.status_code;
       if (code >= 200 && code < 300) grouped['2xx'] += 1;
       else if (code >= 300 && code < 400) grouped['3xx'] += 1;
@@ -248,7 +237,7 @@ const APIPerformanceReports = () => {
   // Most failing endpoints
   const mostFailingEndpoints: EndpointStats[] = (() => {
     const grouped: { [endpoint: string]: number } = {};
-    logs.filter(log => log.status_code >= 400).forEach(log => {
+    filteredLogs.filter(log => log.status_code >= 400).forEach(log => {
       grouped[log.endpoint] = (grouped[log.endpoint] || 0) + 1;
     });
     return Object.entries(grouped)
@@ -258,7 +247,7 @@ const APIPerformanceReports = () => {
   })();
 
   // Latest 50 errors
-  const latestErrors: ErrorDetail[] = logs
+  const latestErrors: ErrorDetail[] = filteredLogs
     .filter(log => log.status_code >= 400)
     .slice(0, 50)
     .map(log => ({
@@ -271,7 +260,7 @@ const APIPerformanceReports = () => {
   // Error rate over time
   const errorRateOverTime = (() => {
     const grouped: { [date: string]: { total: number; errors: number } } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       if (log.created_at) {
         const date = log.created_at.split('T')[0];
         if (!grouped[date]) {
@@ -294,7 +283,7 @@ const APIPerformanceReports = () => {
   // Top IP addresses
   const topIpAddresses: IpStats[] = (() => {
     const grouped: { [ip: string]: number } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       const ip = log.ip_address || 'Unknown';
       grouped[ip] = (grouped[ip] || 0) + 1;
     });
@@ -307,7 +296,7 @@ const APIPerformanceReports = () => {
   // Top User Agents
   const topUserAgents: UserAgentStats[] = (() => {
     const grouped: { [ua: string]: number } = {};
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       const ua = log.user_agent || 'Unknown';
       grouped[ua] = (grouped[ua] || 0) + 1;
     });
@@ -317,19 +306,57 @@ const APIPerformanceReports = () => {
       .slice(0, 10);
   })();
 
+  // Shimmer loading UI similar to AdminDashboard
   if (isLoading) {
     return (
       <ProtectedRoute requireAdmin>
         <Layout>
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <CyclingLoader
-              phrases={[
-                'Loading API logs...',
-                'Analyzing performance metrics...',
-                'Calculating error rates...',
-                'Processing request data...',
-              ]}
-            />
+          <div className="space-y-8 animate-fade-in">
+            {/* Header shimmer */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-10 w-64 bg-muted rounded animate-shimmer mb-2" />
+                <div className="h-6 w-96 bg-muted rounded animate-shimmer" />
+              </div>
+              <div className="h-10 w-32 bg-muted rounded animate-shimmer" />
+            </div>
+
+            {/* Filters shimmer */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i}>
+                  <div className="h-4 w-24 bg-muted rounded animate-shimmer mb-2" />
+                  <div className="h-10 w-full bg-muted rounded animate-shimmer" />
+                </div>
+              ))}
+            </div>
+
+            {/* Summary Cards shimmer */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="glass card-hover p-6 animate-scale-in" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <div className="h-6 w-24 bg-muted rounded animate-shimmer mb-2" />
+                  <div className="h-8 w-32 bg-muted rounded animate-shimmer mb-2" />
+                  <div className="h-4 w-20 bg-muted rounded animate-shimmer mb-2" />
+                  <div className="h-4 w-32 bg-muted rounded animate-shimmer" />
+                </div>
+              ))}
+            </div>
+
+            {/* Main sections shimmer */}
+            {[...Array(3)].map((_, i) => (
+              <div key={i}>
+                <div className="h-6 w-64 bg-muted rounded animate-shimmer mb-4" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {[...Array(2)].map((_, j) => (
+                    <div key={j} className="glass p-6">
+                      <div className="h-4 w-32 bg-muted rounded animate-shimmer mb-2" />
+                      <div className="h-24 w-full bg-muted rounded animate-shimmer" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </Layout>
       </ProtectedRoute>

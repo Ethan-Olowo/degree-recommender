@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { MessageCircle, X, Send, Maximize2, Minimize2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -15,15 +15,17 @@ interface Message {
 
 interface FloatingChatProps {
   recommendations: any[];
+  userId: string; // Added userId prop
 }
 
-export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
+export const FloatingChat = ({ recommendations, userId }: FloatingChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -32,7 +34,7 @@ export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !userId) return;
 
     const userMessage: Message = { role: 'user', content: inputValue };
     setMessages(prev => [...prev, userMessage]);
@@ -44,15 +46,29 @@ export const FloatingChat = ({ recommendations }: FloatingChatProps) => {
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
-          recOutput: recommendations,
-          chatHistory: messages,
-          newMessage: inputValue,
+      const requestBody: any = {
+        chatHistory: messages.map(({ role, content }) => ({ role, content })),
+        newMessage: inputValue,
+      };
+
+      // Optionally include recommendation_id if recommendations exist
+      if (recommendations.length === 1) {
+        requestBody.recommendation_id = recommendations[0].recommendation_id;
+      }
+
+      const response = await fetch(`http://localhost:8000/users/${userId}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(requestBody),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      const data = await response.json();
 
       // Remove loading indicator and add actual response
       setMessages(prev => {

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { GraduationCap, Sparkles, Target, TrendingUp, Users, Award, ChevronRight, Brain, BookOpen, Compass } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 
 const Landing = () => {
   const features = [

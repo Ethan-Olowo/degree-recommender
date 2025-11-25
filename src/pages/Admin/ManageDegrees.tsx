@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';

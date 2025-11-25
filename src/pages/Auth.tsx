@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { GraduationCap, Loader2, Mail, Lock, User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 
 const signUpSchema = z.object({
   fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100),

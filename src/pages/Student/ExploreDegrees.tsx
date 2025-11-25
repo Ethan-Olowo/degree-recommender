@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Filter, GraduationCap, ChevronRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
