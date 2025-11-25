@@ -1,13 +1,17 @@
-
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 import functools
 import database.schemas as schema, models
 import uuid
+import traceback
 import datetime
 from sqlalchemy import desc
 from database.schemas import RecommendationWeights
 from sqlalchemy.orm import joinedload
 import datetime
+from database.db import engine
+
+# Create a session factory for background tasks
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # User CRUD
 def get_user(db: Session, user_id: str):
@@ -32,11 +36,42 @@ def save_category_confidences_batch(db: Session, confidences: list[dict], user_i
     ]
     if not db_confidences:
         return []
-    db.add_all(db_confidences)
-    db.commit()
-    for conf in db_confidences:
-        db.refresh(conf)
+    try:
+        db.add_all(db_confidences)
+        db.commit()
+        for conf in db_confidences:
+            db.refresh(conf)
+    except Exception as e:
+        db.rollback()  # Rollback the transaction to avoid PendingRollbackError
+        raise e  # Re-raise the exception to handle it upstream
     return db_confidences
+
+def save_category_confidences_batch_in_task(confidences: list[dict], user_id: str):
+    """
+    Saves a batch of category confidences in a single transaction (for background tasks).
+    """
+    session = SessionLocal()
+    try:
+        db_confidences = [
+            schema.CategoryConfidence(
+                prediction_id=str(uuid.uuid4()),
+                created_at=datetime.datetime.now(),
+                predicted_category=conf['predicted_category'],
+                user_id=user_id,
+                prediction_confidence=conf['prediction_confidence']
+            )
+            for conf in confidences
+        ]
+        if db_confidences:
+            session.add_all(db_confidences)
+            session.commit()
+            for conf in db_confidences:
+                session.refresh(conf)
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 
 # Personal Interest CRUD
 def get_personal_interests(db: Session, user_id: str):
@@ -74,11 +109,49 @@ def create_recommendations_batch(db: Session, recommendations: list[models.Recom
     ]
     if not db_recommendations:
         return []
-    db.add_all(db_recommendations)
-    db.commit()
-    for rec in db_recommendations:
-        db.refresh(rec)
+    try:
+        db.add_all(db_recommendations)
+        db.commit()
+        for rec in db_recommendations:
+            db.refresh(rec)
+    except Exception as e:
+        db.rollback()  # Rollback the transaction to avoid PendingRollbackError
+        raise e  # Re-raise the exception to handle it upstream
     return db_recommendations
+
+def create_recommendations_batch_in_task(recommendations: list[models.RecommendationCreate], user_id: str):
+    """
+    Saves a batch of recommendations in a single transaction (for background tasks).
+    """
+    session = SessionLocal()
+    try:
+        db_recommendations = [
+            schema.Recommendation(
+                recommendation_id=str(uuid.uuid4()),
+                user_id=user_id,
+                program_id=rec.program_id,
+                confidence_score=rec.confidence_score,
+                market_score=rec.market_score,
+                explanation=getattr(rec, "explanation", None),
+                created_at=getattr(rec, "created_at", datetime.datetime.now()),
+                liked=getattr(rec, "liked", False),
+                algorithm_source=getattr(rec, "algorithm_source", None),
+                subject_score=getattr(rec, "subject_score", None),
+                semantic_score=getattr(rec, "semantic_score", None),
+                peer_score=getattr(rec, "peer_score", None)
+            )
+            for rec in recommendations
+        ]
+        if db_recommendations:
+            session.add_all(db_recommendations)
+            session.commit()
+            for rec in db_recommendations:
+                session.refresh(rec)
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 
 def get_recommendations(db: Session, user_id: str = None, skip: int = 0, limit: int = 100):
     query = db.query(schema.Recommendation)
@@ -97,6 +170,23 @@ def update_recommendation_explanation(db: Session, recommendation_id: str, expla
         db.refresh(db_recommendation)
     return db_recommendation
 
+def update_recommendation_explanation_in_task(recommendation_id: str, explanation: str):
+    """
+    Updates the explanation for a recommendation (for background tasks).
+    """
+    session = SessionLocal()
+    try:
+        db_recommendation = session.query(schema.Recommendation).filter(schema.Recommendation.recommendation_id == recommendation_id).first()
+        if db_recommendation:
+            db_recommendation.explanation = explanation
+            session.commit()
+            session.refresh(db_recommendation)
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
+
 def delete_recommendations_by_user_id(db: Session, user_id: str):
     db.query(schema.Recommendation).filter(schema.Recommendation.user_id == user_id).delete()
     db.commit()
@@ -107,7 +197,17 @@ def get_degree_program(db: Session, program_id: str):
 @functools.lru_cache(maxsize=None)
 def get_degree_programs(db: Session, skip: int = 0, limit: int = 100):
     print("Cache miss: Fetching degree programs from DB")
-    return db.query(schema.DegreeProgram).offset(skip).limit(limit).all()
+    degree_programs = db.query(schema.DegreeProgram).options(
+        joinedload(schema.DegreeProgram.subject_requirements).joinedload(schema.SubjectRequirement.subject),
+        joinedload(schema.DegreeProgram.degree_industries).joinedload(schema.DegreeIndustry.industry)
+    ).offset(skip).limit(limit).all()
+
+    # Populate the industries attribute with industry names
+    for program in degree_programs:
+        program.industries = [di.industry.industry_name for di in program.degree_industries]
+        program.subject_requirements = [sr for sr in program.subject_requirements]
+
+    return degree_programs
 
 # Subject CRUD
 
@@ -154,7 +254,7 @@ def save_embeddings_batch(db: Session, table: str, embeddings: list[dict]):
         'degree_programs': ['program_id']
     }
     model = model_map.get(table)
-    pk_fields = pk_map[table]
+    pk_fields = pk_map.get(table, [])
     db_instances = []
     for emb in embeddings:
         row_id = emb['row_id']
@@ -178,17 +278,71 @@ def save_embeddings_batch(db: Session, table: str, embeddings: list[dict]):
         else:
             if table == 'degree_programs':
                 instance.description_embedding = embedding
-            else:
-                instance.embedding = embedding
         db_instances.append(instance)
-    if not db_instances:
-        return []
-    db.add_all(db_instances)
-    db.commit()
-    for inst in db_instances:
-        db.refresh(inst)
-    return db_instances
+    try:
+        db.add_all(db_instances)
+        db.commit()
+        for instance in db_instances:
+            db.refresh(instance)
+    except Exception as e:
+        db.rollback()
+        raise e
 
+def save_embeddings_batch_in_task(table: str, embeddings: list[dict]):
+    """
+    Saves a batch of embeddings for a given table in a single transaction (for background tasks).
+    Each dict in embeddings should have keys: row_id, embedding, (optional) secondary_id.
+    """
+    session = SessionLocal()
+    try:
+        model_map = {
+            'personal_interests': schema.PersonalInterest,
+            'subjects': schema.Subject,
+            'industries': schema.Industry,
+            'degree_programs': schema.DegreeProgram
+        }
+        pk_map = {
+            'personal_interests': ['user_id', 'interest'],
+            'subjects': ['subject_id'],
+            'industries': ['industry_id'],
+            'degree_programs': ['program_id']
+        }
+        model = model_map.get(table)
+        pk_fields = pk_map.get(table, [])
+        db_instances = []
+        for emb in embeddings:
+            row_id = emb['row_id']
+            embedding = emb['embedding']
+            secondary_id = emb.get('secondary_id')
+            # Ensure embedding is wrapped in square brackets for PostgreSQL vector type
+            if not embedding.startswith('['):
+                embedding = f'[{embedding}]'
+            # Find or create instance
+            query = session.query(model)
+            if table == 'personal_interests' and secondary_id is not None:
+                instance = query.filter(getattr(model, pk_fields[0]) == row_id, getattr(model, pk_fields[1]) == secondary_id).first()
+            else:
+                instance = query.filter(getattr(model, pk_fields[0]) == row_id).first()
+            if not instance:
+                # Create new instance
+                if table == 'personal_interests' and secondary_id is not None:
+                    instance = model(user_id=row_id, interest=secondary_id, embedding=embedding)
+                else:
+                    instance = model(**{pk_fields[0]: row_id}, embedding=embedding)
+            else:
+                if table == 'degree_programs':
+                    instance.description_embedding = embedding
+            db_instances.append(instance)
+        if db_instances:
+            session.add_all(db_instances)
+            session.commit()
+            for instance in db_instances:
+                session.refresh(instance)
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 
 # --- Recommendation Weights ---
 @functools.lru_cache(maxsize=None)
@@ -295,8 +449,126 @@ def save_market_indicator_values_batch(db, fetched, found_set):
         )
         new_values.append(value)
     if new_values:
-        db.add_all(new_values)
-        db.commit()
-        for v in new_values:
-            db.refresh(v)
+        try:
+            db.add_all(new_values)
+            db.commit()
+            for v in new_values:
+                db.refresh(v)
+        except Exception as e:
+            db.rollback()  # Rollback the transaction to avoid PendingRollbackError
+            raise e  # Re-raise the exception to handle it upstream
     return new_values
+
+def log_activity(db: Session, user_id: str, log_level_id: str, http_method_id: str, endpoint: str, status_code: int, execution_time_ms: int, ip_address: str = None, user_agent: str = None, log_id: str = None):
+    if log_id is None:
+        log_id = str(uuid.uuid4())
+    log = schema.ActivityLog(
+        log_id=log_id,
+        user_id=user_id,
+        log_level_id=log_level_id,
+        http_method_id=http_method_id,
+        endpoint=endpoint,
+        status_code=status_code,
+        execution_time_ms=execution_time_ms,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        created_at=datetime.datetime.now()
+    )
+    try:
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+    except Exception as e:
+        db.rollback()  # Ensure the transaction is rolled back
+        # raise e  # Re-raise the exception to handle it upstream
+    return log
+
+def log_activity_in_task(user_id: str, log_level_id: str, http_method_id: str, endpoint: str, status_code: int, execution_time_ms: int, ip_address: str = None, user_agent: str = None, log_id: str = None):
+    """
+    Logs an activity in a background task with isolated session management.
+    """
+    session = SessionLocal()
+    try:
+        if log_id is None:
+            log_id = str(uuid.uuid4())
+        log = schema.ActivityLog(
+            log_id=log_id,
+            user_id=user_id,
+            log_level_id=log_level_id,
+            http_method_id=http_method_id,
+            endpoint=endpoint,
+            status_code=status_code,
+            execution_time_ms=execution_time_ms,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            created_at=datetime.datetime.now()
+        )
+        session.add(log)
+        session.commit()
+        session.refresh(log)
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
+
+def log_error(db: Session, log_id: str, error_message: str, stack_trace: str = None):
+    error = schema.LogError(
+        log_id=log_id,
+        error_message=error_message,
+        stack_trace=stack_trace
+    )
+    db.add(error)
+    db.commit()
+    db.refresh(error)
+    return error
+
+import datetime
+import functools
+
+@functools.lru_cache(maxsize=None)
+def get_market_indicators_for_past_year(db: Session, indicator_names: list = None):
+    """
+    Fetch all market indicators for the past year.
+
+    Parameters:
+        db (Session): SQLAlchemy database session.
+        indicator_names (list, optional): List of indicator names to filter. If None, fetches all indicators.
+
+    Returns:
+        list: List of MarketIndicatorValue objects matching the criteria.
+    """
+    # Calculate the start of the past year
+    today = datetime.date.today()
+    start_of_last_year = datetime.date(today.year - 1, 1, 1)
+
+    # Eagerly load relationships to avoid DetachedInstanceError
+    eager_options = [
+        joinedload(schema.MarketIndicatorValue.indicator_type),
+        # joinedload(schema.MarketIndicatorValue.industry)
+    ]
+
+    query = db.query(schema.MarketIndicatorValue).options(*eager_options).filter(
+        schema.MarketIndicatorValue.last_updated >= start_of_last_year
+    )
+
+    if indicator_names:
+        query = query.filter(
+            schema.MarketIndicatorValue.indicator_type.has(
+                schema.IndicatorType.indicator_name.in_(indicator_names)
+            )
+        )
+
+    return query.all()
+
+def get_last_5_recommendations(db: Session, user_id: str):
+    """
+    Fetch the last 5 recommendations for a given user, ordered by creation date.
+    """
+    return (
+        db.query(schema.Recommendation)
+        .filter(schema.Recommendation.user_id == user_id)
+        .order_by(desc(schema.Recommendation.created_at))
+        .limit(5)
+        .all()
+    )

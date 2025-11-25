@@ -3,10 +3,6 @@
 This is the backend for a Degree Recommendation System, built with FastAPI, SQLAlchemy, and Pydantic. It provides APIs for managing students, profiles, degree programs, and generating personalized degree recommendations using multiple algorithms and market trend analysis.
 
 ## Features
-
-- **Student Management:** Register and manage student accounts.
-- **Profile Management:** Store academic, career, and personal data for each student.
-- **Degree Programs:** CRUD operations for degree programs.
 - **Recommendation Engine:** Generates degree recommendations using content-based filtering, peer clustering, and market trend analysis.
 - **Explanations:** Uses OpenAI's GPT models to generate natural language explanations for recommendations.
 - **Market Trends:** Analyzes job market data to inform recommendations.
@@ -16,7 +12,7 @@ This is the backend for a Degree Recommendation System, built with FastAPI, SQLA
 - **FastAPI** for API endpoints
 - **SQLAlchemy** for ORM/database access
 - **Pydantic** for data validation
-- **OpenAI API** for explanation generation
+- **OpenRouter API** for explanation generation
 - **Supabase** as the default database
 
 ## Setup
@@ -31,7 +27,7 @@ This is the backend for a Degree Recommendation System, built with FastAPI, SQLA
 3. **Configure environment variables**
     - Copy `.env` and set your OpenAI API key:
       ```
-      OPENAI_API_KEY="your_openai_api_key_here"
+      OPENROUTER_API_KEY="your_openrouter_api_key_here"
       ```
 
 4. **Run the server**
@@ -40,14 +36,8 @@ This is the backend for a Degree Recommendation System, built with FastAPI, SQLA
     ```
 
 ## API Endpoints
-
-- `POST /students/` - Register a new student
-- `GET /students/{student_id}` - Get student details
-- `POST /students/{student_id}/profile/` - Create a student profile
 - `GET /students/{student_id}/recommendations/` - Generate degree recommendations
 - `GET /recommendations/{recommendation_id}/explanation` - Get explanation for a recommendation
-- `POST /degree_programs/` - Add a degree program
-- `GET /degree_programs/` - List degree programs
 
 ## Project Structure
 
@@ -72,7 +62,6 @@ Degree-Recommender-Backend/
 │   ├── peer_clustering.py
 │   ├── recommendation_algorithm.py
 │   ├── recommendation_engine.py
-│   ├── __pycache__/
 │   └── models/
 │       ├── degree_focus_metadata.pt
 │       ├── degree_focus_model.pth
@@ -86,6 +75,8 @@ Degree-Recommender-Backend/
 │   ├── test_grades_helper.py
 │   ├── test_market_trend_analyzer.py
 │   ├── test_peer_clustering.py
+│   ├── test_content_based_filtering.py
+│   ├── test_explanation_generator.py
 │   └── __pycache__/
 ```
 

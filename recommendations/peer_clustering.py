@@ -40,7 +40,7 @@ class PeerClustering:
         
         # Scale numerical features
         # Ensure DataFrame has all selected features
-        df = df.reindex(columns=self.selected_features, fill_value=0)
+        # df = df.reindex(columns=self.selected_features, fill_value=0)
         df_scaled = self.scaler.transform(df)
 
         # Select only the features used for training

@@ -1,17 +1,6 @@
 # --- Market Indicator Models ---
-from pydantic import BaseModel
-
-class MarketIndicatorRequest(BaseModel):
-    years: list[int]
-    country_codes: list[str]
-
-class MarketIndicatorValueResponse(BaseModel):
-    indicator_name: str
-    country_code: str
-    value: float
-    year: int
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, Field
+from typing import List, Optional, Union
 import uuid
 from datetime import datetime
 
@@ -41,8 +30,7 @@ class DegreeProgram(DegreeProgramBase):
     program_id: uuid.UUID
     industries: Optional[List[str]] = []
     subject_requirements: Optional[List[SubjectRequirement]] = []
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Recommendation
 class RecommendationBase(BaseModel):
@@ -56,7 +44,7 @@ class RecommendationBase(BaseModel):
     semantic_score: Optional[float] = None
     subject_score: Optional[float] = None
     peer_score: Optional[float] = None
-
+    model_config = ConfigDict(from_attributes=True)
 
 class RecommendationCreate(RecommendationBase):
     user_id: uuid.UUID
@@ -66,8 +54,7 @@ class Recommendation(RecommendationBase):
     recommendation_id: uuid.UUID
     user_id: uuid.UUID
     degree_program: Optional[DegreeProgram] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # SubjectGrade
 class SubjectGrade(BaseModel):
@@ -86,8 +73,7 @@ class AcademicDataBase(BaseModel):
 class AcademicData(AcademicDataBase):
     academic_data_id: uuid.UUID
     subject_grades: Optional[List[SubjectGrade]] = []
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Personal Interest
@@ -118,5 +104,34 @@ class User(UserBase):
     socioeconomic: Optional[SocioeconomicIndicator] = None
     recommendations: Optional[List[Recommendation]] = []
     subject_grades: Optional[List[SubjectGrade]] = []
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+    
+
+class MarketIndicatorRequest(BaseModel):
+    years: list[int]
+    country_codes: list[str]
+
+class MarketIndicatorValueResponse(BaseModel):
+    indicator_name: str
+    country_code: str
+    value: float
+    year: int
+
+# Chat History Message
+class ChatMessage(BaseModel):
+    role: str  # e.g., 'system', 'user', 'assistant'
+    content: str
+
+# Chat Request
+class ChatRequest(BaseModel):
+    chatHistory: Optional[List[ChatMessage]] = Field(default_factory=list)
+    recommendation_id: Optional[str] = None
+    newMessage: str
+
+# Chat Response
+class ChatResponse(BaseModel):
+    reply: str
+
+# Error Response
+class ErrorResponse(BaseModel):
+    error: str

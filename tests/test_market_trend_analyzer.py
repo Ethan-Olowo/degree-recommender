@@ -25,10 +25,10 @@ def degree_program():
 def test_analyze_trends_filters_and_averages(sample_indicators, degree_program):
     analyzer = MarketTrendAnalyzer(sample_indicators)
     result = analyzer.analyze_trends(degree_program)
-    # Growth: (10.0 + 20.0) / 2 = 15.0
-    # Salary: 50000.0
-    # Demand: 0.8
-    assert pytest.approx(result['Growth']) == 15.0
+    # Growth: Only industry-specific value (20.0)
+    # Salary: Only industry-specific value (50000.0)
+    # Demand: First value (0.8) since industry is None
+    assert pytest.approx(result['Growth']) == 20.0
     assert pytest.approx(result['Salary']) == 50000.0
     assert pytest.approx(result['Demand']) == 0.8
 
@@ -58,6 +58,7 @@ def test_analyze_trends_no_matching_industry():
     degree_program = DegreeProgram(degree_industries=[DegreeIndustry(1)])
     analyzer = MarketTrendAnalyzer(indicators)
     result = analyzer.analyze_trends(degree_program)
+    # No matching industry, so result should be empty
     assert result == {}
 
 def test_normalize_indicator_empty_values():

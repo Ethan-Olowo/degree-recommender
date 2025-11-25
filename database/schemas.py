@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from database.db import Base
 import uuid
+import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -112,7 +113,9 @@ class IndicatorType(Base):
     indicator_name = Column(String(100), unique=True, nullable=False)
     description = Column(Text)
     unit = Column(String(50))
-
+    is_positive = Column(Boolean, nullable=False, default=True)  # New column added
+    average = Column(Float, nullable=True)  # New column added
+    
 class MarketIndicatorValue(Base):
     __tablename__ = "market_indicator_values"
     value_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -141,12 +144,6 @@ class Recommendation(Base):
     peer_score = Column(Float)
     user = relationship("User", back_populates="recommendations")
     degree_program = relationship("DegreeProgram", back_populates="recommendations")
-
-class Report(Base):
-    __tablename__ = "reports"
-    report_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    generated_at = Column(TIMESTAMP, default="now()")
-    recommendation_stats = Column(Text)
     
 # --- Recommendation Weights Table ---
 class RecommendationWeights(Base):
@@ -159,3 +156,25 @@ class RecommendationWeights(Base):
     category_rank_weight = Column(Float, nullable=False, default=0.05)
     created_at = Column(TIMESTAMP, nullable=False)
     current = Column(Boolean, nullable=False, default=False)
+    
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+    log_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"))
+    log_level_id = Column(String(50))
+    http_method_id = Column(String(10))
+    endpoint = Column(VARCHAR(255), nullable=False)
+    status_code = Column(String(10), nullable=False)
+    execution_time_ms = Column(String(10), nullable=False)
+    ip_address = Column(VARCHAR(45))
+    user_agent = Column(VARCHAR(255))
+    created_at = Column(TIMESTAMP, nullable=False, default=datetime.datetime.now)
+    errors = relationship("LogError", back_populates="activity_log", cascade="all, delete-orphan")
+
+class LogError(Base):
+    __tablename__ = "log_errors"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    log_id = Column(UUID(as_uuid=True), ForeignKey("activity_logs.log_id", ondelete="CASCADE"))
+    error_message = Column(Text)
+    stack_trace = Column(Text)
+    activity_log = relationship("ActivityLog", back_populates="errors")

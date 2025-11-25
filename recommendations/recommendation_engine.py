@@ -4,7 +4,8 @@ from recommendations.peer_clustering import PeerClustering
 from recommendations.explanation_generator import ExplanationGenerator
 from models import DegreeProgram, Recommendation, User, RecommendationCreate
 from database.schemas import AcademicData, MarketIndicatorValue, SubjectGrade, Subject, DegreeIndustry, Industry, SubjectRequirement
-from database.crud import get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values, save_category_confidences_batch, create_recommendations_batch, update_recommendation_explanation
+from database.crud import get_subjects, get_degree_programs, get_industries, get_current_recommendation_weights, get_market_indicator_values, save_category_confidences_batch, create_recommendations_batch, update_recommendation_explanation, get_market_indicators_for_past_year
+from database.crud import save_category_confidences_batch_in_task, create_recommendations_batch_in_task, update_recommendation_explanation_in_task
 from fastapi import BackgroundTasks
 
 class RecommendationEngine:
@@ -54,7 +55,7 @@ class RecommendationEngine:
                 for cat in category_preds
             ]
             if confidences:
-                background_tasks.add_task(save_category_confidences_batch, db, confidences, str(user.user_id))
+                background_tasks.add_task(save_category_confidences_batch_in_task, confidences, str(user.user_id))
         elif db is not None:
             confidences = [
                 {'predicted_category': cat['category'], 'prediction_confidence': cat['score']}
@@ -66,10 +67,12 @@ class RecommendationEngine:
         if self.degree_programs == []:
             if db is not None:
                 self.degree_programs = get_degree_programs(db)
-        if self.subjects == [] and db is not None:
-            self.subjects = get_subjects(db)
-        if self.industries == [] and db is not None:
-            self.industries = get_industries(db)
+                # Ensure industries are populated
+                for program in self.degree_programs:
+                    program.industries = program.industries or []
+        
+        self.subjects = get_subjects(db)
+        self.industries = get_industries(db)
 
         # Update attributes instead of reinitializing
         self.content_based_filtering.all_subjects = [s.subject_name for s in self.subjects]
@@ -85,7 +88,7 @@ class RecommendationEngine:
         # Compute category ranks for peer_score
         category_ranks = {cat['category']: idx for idx, cat in enumerate(self.categories)}
 
-        if len(filtered_programs) >= 10:
+        if len(filtered_programs) >= 20:
             recommendations.extend(self.content_based_filtering.recommend(
                 user,
                 degree_programs=filtered_programs,
@@ -102,11 +105,24 @@ class RecommendationEngine:
                 category_ranks=category_ranks
             ))
 
-        self.indicators = get_market_indicator_values(db, country_code=user.socioeconomic.country_code)
-        self.market_trend_analyzer.indicators = self.indicators
+        # Use the new function to fetch market indicators
+        self.indicators = get_market_indicators_for_past_year(db)
+        self.market_trend_analyzer.indicators = [indicator for indicator in self.indicators if indicator.country_code == user.socioeconomic.country_code or indicator.country_code is None]
 
+        program_market_scores = {}
         for recommendation in recommendations:
-            recommendation.market_score = self.market_trend_analyzer.calculate_market_score(recommendation.degree_program)
+            degree_program = recommendation.degree_program
+            # Check if a similar degree program's market score is already calculated
+            matching_program = next(
+                (prog for prog in program_market_scores if set(getattr(prog, 'industries', []) or []) == set(getattr(degree_program, 'industries', []) or [])),
+                None
+            )
+            print(getattr(degree_program, 'industries', []))
+            if matching_program:
+                recommendation.market_score = program_market_scores[matching_program]
+            else:
+                recommendation.market_score = self.market_trend_analyzer.calculate_market_score(degree_program)
+                program_market_scores[degree_program] = recommendation.market_score
 
         content_importance = self.get_content_importance(user)
         market_importance = self.get_market_importance(user)
@@ -135,7 +151,7 @@ class RecommendationEngine:
         ]
         if db is not None and background_tasks is not None:
             if recs_to_create:
-                background_tasks.add_task(create_recommendations_batch, db, recs_to_create, user.user_id)
+                background_tasks.add_task(create_recommendations_batch_in_task, recs_to_create, user.user_id)
             return recommendations
         elif db is not None:
             if recs_to_create:
@@ -144,7 +160,6 @@ class RecommendationEngine:
         else:
             return recommendations
 
-
     def generate_explanation(self, user: User, degree_program: DegreeProgram, recommendation: Recommendation, db=None, background_tasks: BackgroundTasks = None) -> str:
         """
         Generates a natural language explanation for a recommendation using an LLM.
@@ -152,7 +167,7 @@ class RecommendationEngine:
         trends = self.market_trend_analyzer.analyze_trends(degree_program)
         explanation = self.explanation_generator.generate_explanation(user, degree_program, recommendation, trends)
         if db is not None and background_tasks is not None:
-            background_tasks.add_task(update_recommendation_explanation, db, recommendation_id=recommendation.recommendation_id, explanation=explanation)
+            background_tasks.add_task(update_recommendation_explanation_in_task, recommendation.recommendation_id, explanation)
         elif db is not None:
             update_recommendation_explanation(db, recommendation_id=recommendation.recommendation_id, explanation=explanation)
         return explanation
@@ -165,10 +180,10 @@ class RecommendationEngine:
     
     def rank_recommendations(self, recommendations: list[Recommendation], weights: dict = None, content_importance: float = 1.0, market_importance: float = 1.0) -> list[Recommendation]:
         """
-        Ranks recommendations based on a weighted score of confidence and market scores, using weights from DB.
+        Ranks recommendations based on a weighted score of confidence, market scores, and peer scores.
         """
-        # Calculate category ranks (position in the array) for each recommendation
-        category_ranks = {cat['category']: idx for idx, cat in enumerate(self.categories)}
+        # Calculate peer scores using prediction confidences, clipped between 0 and 1
+        category_confidences = {cat['category']: max(0, min(cat['score'] * 5, 1)) for cat in self.categories}
 
         # Default weights
         confidence_score_weight = 0.65
@@ -188,7 +203,10 @@ class RecommendationEngine:
         category_rank_weight /= total_weight
 
         weighted_scores = []
-        for idx, rec in enumerate(recommendations):
+        for rec in recommendations:
+            # Calculate peer score based on category confidences
+            rec.peer_score = category_confidences.get(rec.degree_program.category, 0.0)
+
             score = (
                 confidence_score_weight * rec.confidence_score +
                 market_score_weight * rec.market_score +

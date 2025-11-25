@@ -1,6 +1,7 @@
 import os
 import requests
-from models import DegreeProgram, Recommendation, User
+from models import DegreeProgram, Recommendation, User, ChatRequest, ChatResponse
+import json
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -90,7 +91,7 @@ class ExplanationGenerator:
         if 'market_score' in high_scores_dict:
             drivers_to_generate.append({
                 "type": "market",
-                "prompt_data": f"Market Trends: {str(trends)}"
+                "prompt_data": f"Market Trends: {str(trends)}, country: {user.socioeconomic.country_code if user.socioeconomic else 'N/A'}"
             })
         print(f"Drivers to generate snippets for: {[driver['type'] for driver in drivers_to_generate]}")
 
@@ -127,7 +128,77 @@ class ExplanationGenerator:
        
 
         
-        
+    @staticmethod
+    def process_chat_request(chat_request: ChatRequest, recommendations: list[Recommendation], user_interests: str) -> ChatResponse:
+        """
+        Process the chat request by constructing the system prompt and calling the OpenRouter API.
+        """
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_api_key:
+            raise ValueError("OpenRouter API key is not configured.")
+
+        # Construct the system prompt as JSON
+        system_prompt = {
+            "role": "assistant",
+            "purpose": "Help students understand their degree recommendations and academic journey.",
+            "guidance": "Provide clear, concise, and supportive responses.",
+            "metrics_explanation": {
+                "confidence_score": "Represents the overall confidence in the recommendation, based on multiple factors.",
+                "market_score": "Indicates the job market demand and future outlook for the degree.",
+                "semantic_score": "Measures how well the degree aligns with the student's interests.",
+                "peer_score": "Reflects whether similar students chose this program.",
+                "subject_score": "Evaluates how well the student's academic strengths match the degree requirements."
+            },
+            "user_interests": user_interests,
+            "recommendations": []
+        }
+
+        if recommendations:
+            for rec in recommendations:
+                rec_data = {
+                    "degree_program": rec.degree_program.program_name,
+                    "program_type": rec.degree_program.program_type,
+                    "confidence_score": rec.confidence_score,
+                    "market_score": rec.market_score,
+                    "semantic_score": rec.semantic_score,
+                    "peer_score": rec.peer_score,
+                    "subject_score": rec.subject_score,
+                    "explanation": rec.explanation,
+                    "description": rec.degree_program.description,
+                }
+                system_prompt["recommendations"].append(rec_data)
+
+        # Convert the system prompt to a JSON string
+        system_prompt_json = json.dumps(system_prompt, indent=4)
+
+        # Build the messages array
+        messages = [
+            {"role": "system", "content": system_prompt_json},
+            *(message.dict() for message in chat_request.chatHistory),
+            {"role": "user", "content": chat_request.newMessage},
+        ]
+
+        # Call the OpenRouter API
+        headers = {
+            "Authorization": f"Bearer {openrouter_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": "openai/gpt-oss-20b:free",
+            "messages": messages,
+        }
+
+        try:
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "Error generating response.")
+            if any(not rec.explanation for rec in recommendations):
+                reply += "\n\nTo get more accurate information, generate explanations for each recommendation using the button in the Recommendation details page."
+            return ChatResponse(reply=reply)
+        except Exception as e:
+            raise ValueError(f"Error calling OpenRouter API: {e}")
+
     def _get_llm_snippet(self, driver_type: str, data: str, program_name: str) -> str:
         """
         Generates a single, concise sentence for a specific recommendation driver.
