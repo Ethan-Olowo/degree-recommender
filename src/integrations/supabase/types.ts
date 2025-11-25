@@ -46,6 +46,45 @@ export type Database = {
           },
         ]
       }
+      activity_logs: {
+        Row: {
+          created_at: string | null
+          endpoint: string
+          execution_time_ms: number
+          http_method_id: string | null
+          ip_address: string | null
+          log_id: string
+          log_level_id: string | null
+          status_code: number
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint: string
+          execution_time_ms: number
+          http_method_id?: string | null
+          ip_address?: string | null
+          log_id: string
+          log_level_id?: string | null
+          status_code: number
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          endpoint?: string
+          execution_time_ms?: number
+          http_method_id?: string | null
+          ip_address?: string | null
+          log_id?: string
+          log_level_id?: string | null
+          status_code?: number
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       category_confidence: {
         Row: {
           created_at: string
@@ -191,6 +230,35 @@ export type Database = {
           industry_name?: string
         }
         Relationships: []
+      }
+      log_errors: {
+        Row: {
+          error_message: string | null
+          id: string
+          log_id: string | null
+          stack_trace: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id: string
+          log_id?: string | null
+          stack_trace?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          log_id?: string | null
+          stack_trace?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_errors_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "activity_logs"
+            referencedColumns: ["log_id"]
+          },
+        ]
       }
       market_indicator_values: {
         Row: {
