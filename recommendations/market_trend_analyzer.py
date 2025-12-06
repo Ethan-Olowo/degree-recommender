@@ -116,9 +116,6 @@ class MarketTrendAnalyzer:
                     'average': indicator_type_avg
                 })
 
-        # Log indicator groups for debugging
-        # print("Indicator Groups:", self.indicator_groups)
-
         # Calculate average values per indicator type
         avg_values = {}
         degree_industries = {di.industry_id for di in degree_program.degree_industries}

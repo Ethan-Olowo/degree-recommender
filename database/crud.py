@@ -8,10 +8,9 @@ from sqlalchemy import desc
 from database.schemas import RecommendationWeights
 from sqlalchemy.orm import joinedload
 import datetime
-from database.db import engine
-
-# Create a session factory for background tasks
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from database.db import SessionLocal
+import datetime
+import functools
 
 # User CRUD
 def get_user(db: Session, user_id: str):
@@ -418,7 +417,6 @@ def get_market_indicator_values(
     indicators.extend(global_query.all())
     return indicators
 
-
 def save_market_indicator_values_batch(db, fetched, found_set):
     """
     Batch version: Save all new market indicator values in a single transaction.
@@ -459,72 +457,62 @@ def save_market_indicator_values_batch(db, fetched, found_set):
             raise e  # Re-raise the exception to handle it upstream
     return new_values
 
-def log_activity(db: Session, user_id: str, log_level_id: str, http_method_id: str, endpoint: str, status_code: int, execution_time_ms: int, ip_address: str = None, user_agent: str = None, log_id: str = None):
-    if log_id is None:
-        log_id = str(uuid.uuid4())
-    log = schema.ActivityLog(
-        log_id=log_id,
-        user_id=user_id,
-        log_level_id=log_level_id,
-        http_method_id=http_method_id,
-        endpoint=endpoint,
-        status_code=status_code,
-        execution_time_ms=execution_time_ms,
-        ip_address=ip_address,
-        user_agent=user_agent,
-        created_at=datetime.datetime.now()
-    )
-    try:
-        db.add(log)
-        db.commit()
-        db.refresh(log)
-    except Exception as e:
-        db.rollback()  # Ensure the transaction is rolled back
-        # raise e  # Re-raise the exception to handle it upstream
-    return log
-
-def log_activity_in_task(user_id: str, log_level_id: str, http_method_id: str, endpoint: str, status_code: int, execution_time_ms: int, ip_address: str = None, user_agent: str = None, log_id: str = None):
+def logging_task(
+    user_id: str, 
+    log_level_id: str, 
+    http_method_id: str, 
+    endpoint: str, 
+    status_code: int, 
+    execution_time_ms: int, 
+    ip_address: str = None, 
+    user_agent: str = None, 
+    error_message: str = None, 
+    stack_trace: str = None
+):
     """
-    Logs an activity in a background task with isolated session management.
+    Handles both Activity and Error logging in a SINGLE transaction 
+    with a dedicated session.
     """
-    session = SessionLocal()
-    try:
-        if log_id is None:
+    # Create a fresh session for this background task
+    with SessionLocal() as session:
+        try:
             log_id = str(uuid.uuid4())
-        log = schema.ActivityLog(
-            log_id=log_id,
-            user_id=user_id,
-            log_level_id=log_level_id,
-            http_method_id=http_method_id,
-            endpoint=endpoint,
-            status_code=status_code,
-            execution_time_ms=execution_time_ms,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            created_at=datetime.datetime.now()
-        )
-        session.add(log)
-        session.commit()
-        session.refresh(log)
-    except Exception as e:
-        session.rollback()
-        raise e
-    finally:
-        session.close()
+            
+            # 1. Prepare Activity Log
+            log = schema.ActivityLog(
+                log_id=log_id,
+                user_id=user_id,
+                log_level_id=log_level_id,
+                http_method_id=http_method_id,
+                endpoint=endpoint,
+                status_code=status_code,
+                execution_time_ms=execution_time_ms,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                created_at=datetime.datetime.now()
+            )
+            session.add(log)
+            
+            # 2. Flush to stage the log_id in the DB transaction (prevents FK errors)
+            session.flush() 
 
-def log_error(db: Session, log_id: str, error_message: str, stack_trace: str = None):
-    error = schema.LogError(
-        log_id=log_id,
-        error_message=error_message,
-        stack_trace=stack_trace
-    )
-    db.add(error)
-    db.commit()
-    db.refresh(error)
-    return error
-
-import datetime
-import functools
+            # 3. If there is an error, add it now
+            if error_message:
+                error = schema.LogError(
+                    log_id=log_id, # This is now safe to use
+                    error_message=error_message,
+                    stack_trace=stack_trace
+                )
+                session.add(error)
+            
+            # 4. Commit everything together
+            session.commit()
+            
+        except Exception as e:
+            print(f"CRITICAL: Logging failed completely. Error: {e}")
+            session.rollback()
+            # Since this is a background task, we catch the error so it doesn't 
+            # crash the worker, but we log it to stdout.
 
 @functools.lru_cache(maxsize=None)
 def get_market_indicators_for_past_year(db: Session, indicator_names: list = None):

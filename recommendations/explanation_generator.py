@@ -28,7 +28,6 @@ class ExplanationGenerator:
         """
         Generates a natural language explanation for a recommendation using an LLM.
         """
-        print(f"Generating explanation for recommendation: {getattr(recommendation, 'recommendation_id', None)}")
 
         # Extract user details
         academic_performance = None
@@ -54,7 +53,6 @@ class ExplanationGenerator:
         else:
             socioeconomic_str = "N/A"
 
-
         # Degree program details
         industries_list = getattr(degree_program, 'industries', []) or []
         industries = ', '.join(industries_list) if industries_list else "N/A"
@@ -72,7 +70,6 @@ class ExplanationGenerator:
             if isinstance(score_value, (int, float)) and score_value >= 0.5:
                 high_scores.append((score_name, score_value))
 
-        print(f"High scores identified: {high_scores}")
         
         high_scores_dict = dict(high_scores)
         drivers_to_generate = []

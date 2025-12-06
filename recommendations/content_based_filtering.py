@@ -219,11 +219,11 @@ class ContentBasedFiltering:
             print("Could not create feature vectors for eligible programs.")
             return []
 
-        # 3. Calculate subject similarity (grades vs requirements)
+        # 4. Calculate subject similarity (grades vs requirements)
         subject_sim = np.dot(user_subject_vec, subject_matrix.values.T) / degree_norms
         subject_sim = np.clip(subject_sim, 0.0, 1.0)  # Ensure scores stay between 0.0 and 1.0
 
-        # 4. Calculate semantic similarity (user interests vs [industry+description] embeddings)
+        # 5. Calculate semantic similarity (user interests vs [industry+description] embeddings)
         user_interest_vec_reshaped = user_interest_vec.reshape(1, -1)
         semantic_sim = cosine_similarity(user_interest_vec_reshaped, semantic_embedding_matrix)[0]
 
@@ -231,7 +231,7 @@ class ContentBasedFiltering:
         semantic_sim = semantic_sim / 0.7
         semantic_sim = np.clip(semantic_sim, 0, 1)
 
-        # 5. Combine similarities with weights from DB
+        # 6. Combine similarities with weights from DB
         subject_weight = 0.3
         semantic_weight = 0.7
         if weights:
@@ -240,11 +240,11 @@ class ContentBasedFiltering:
         combined_sim = subject_weight * subject_sim + semantic_weight * semantic_sim
         sim_scores = list(enumerate(combined_sim))
 
-        # 6. Sort programs based on combined similarity scores
+        # 7. Sort programs based on combined similarity scores
         sorted_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
         top_program_indices = [i[0] for i in sorted_scores[:top_n]]
 
-        # 7. Format and return the results
+        # 8. Format and return the results
         recommendations = []
         idx_to_program_id = {v: k for k, v in program_id_map.items()}
         algorithm_source = weights["algorithm_id"]

@@ -1,20 +1,28 @@
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
-import database.schemas as schema 
-import database.crud as crud
+import database.schemas as schema
 import models
 import market
 from database.db import SessionLocal, engine
 from recommendations.recommendation_engine import RecommendationEngine
 from fastapi.middleware.cors import CORSMiddleware
-from database.schemas import MarketIndicatorValue, IndicatorType, Country
+from database.schemas import Country
 import datetime
 from fastapi.responses import JSONResponse
 from recommendations.market_trend_analyzer import MarketTrendAnalyzer
 import traceback
-from api_logging import log_activity, log_error
 import uuid
-from database.crud import log_activity_in_task
+from database.crud import (
+    logging_task,
+    get_market_indicator_values,
+    save_market_indicator_values_batch,
+    get_recommendation,
+    get_user,
+    get_degree_program,
+    get_personal_interests,
+    get_last_5_recommendations,
+)
+
 # from chat import process_chat_request
 from models import ChatRequest, ChatResponse, ErrorResponse
 from recommendations.explanation_generator import ExplanationGenerator
@@ -46,17 +54,31 @@ def get_db():
     finally:
         db.close()
 
+
 # Initialize the recommendation engine
 recommendation_engine = RecommendationEngine()
 
+
 # --- Market Indicator Endpoint ---
 @app.post("/market-indicators/", tags=["Market Indicators"])
-def post_market_indicators(request: models.MarketIndicatorRequest, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None, req: Request = None):
+def post_market_indicators(
+    request: models.MarketIndicatorRequest,
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
+    req: Request = None,
+):
     """
     Fetch market indicator values for specified years and countries. If missing, fetch from World Bank and update DB.
     """
     start_time = datetime.datetime.now()
-    log_id = str(uuid.uuid4())
+    user_agent = req.headers.get("user-agent") if req else None
+    ip_address = req.client.host if req and req.client else None
+    method = req.method if req else "POST"
+    status_code = 200
+    error_message = None
+    stack_trace = None
+    response_data = None
+
     try:
         indicator_names = set(market.INDICATORS.values())
         years = request.years
@@ -69,7 +91,9 @@ def post_market_indicators(request: models.MarketIndicatorRequest, db: Session =
         if not years or len(years) == 0:
             years = [datetime.datetime.now().year - 1]
 
-        found_values = crud.get_market_indicator_values(db, years=years, country_code=None, indicator_names=list(indicator_names))
+        found_values = get_market_indicator_values(
+            db, years=years, country_code=None, indicator_names=list(indicator_names)
+        )
         found_set = set()
         for v in found_values:
             year_val = v.last_updated.year if v.last_updated else None
@@ -86,207 +110,224 @@ def post_market_indicators(request: models.MarketIndicatorRequest, db: Session =
         message = "Market data is already up to date."
         if missing:
             fetched = MarketTrendAnalyzer.fetch_world_bank_data(years, country_codes)
-            crud.save_market_indicator_values_batch(db, fetched, found_set)
+            save_market_indicator_values_batch(db, fetched, found_set)
             message = "Market data successfully updated."
+        response_data = {"message": message}
+
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        if status_code == 200:
+            status_code = 500
+        error_message = str(e)
+        response_data = {"detail": error_message}
+
+    finally:
         execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
+        log_level = "ERROR" if status_code >= 400 else "INFO"
         if background_tasks:
             background_tasks.add_task(
-                log_activity_in_task,
-                None,
-                "INFO",
-                req.method if req else "POST",
-                "/market-indicators/",
-                status_code,
-                execution_time_ms,
-                req.client.host if req and req.client else None,
-                req.headers.get("user-agent") if req else None
+                logging_task,
+                user_id=None,
+                log_level_id=log_level,
+                http_method_id=method,
+                endpoint="/market-indicators/",
+                status_code=status_code,
+                execution_time_ms=execution_time_ms,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                error_message=error_message,
+                stack_trace=stack_trace
             )
-        return {"message": message}
-    except Exception as e:
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-        stack_trace = traceback.format_exc()
-        if isinstance(e, HTTPException):
-            status_code = e.status_code
-            detail = e.detail
-        else:
-            status_code = 500
-            detail = f"Error: {str(e)}"
-        # Log synchronously (no background tasks) on error
-        log_activity(
-            db,
-            None,
-            "ERROR",
-            req.method if req else "POST",
-            "/market-indicators/",
-            status_code,
-            execution_time_ms,
-            req.client.host if req and req.client else None,
-            req.headers.get("user-agent") if req else None,
-            log_id
+
+    if status_code >= 400:
+        return JSONResponse(
+            status_code=status_code,
+            content=response_data,
+            background=background_tasks
         )
-        log_error(
-            db,
-            log_id,
-            str(e),
-            stack_trace
-        )
-        return JSONResponse(status_code=status_code, content={"message": detail})
+    return response_data
+
 
 # Recommendations
-@app.get("/users/{user_id}/recommendations/", response_model=list[models.Recommendation], tags=["Recommendations"])
-def get_recommendations(user_id: str, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None, req: Request = None):
+@app.get(
+    "/users/{user_id}/recommendations/",
+    response_model=list[models.Recommendation],
+    tags=["Recommendations"],
+)
+def get_recommendations(
+    user_id: str,
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
+    req: Request = None,
+):
     """
     Generate and retrieve degree recommendations for a user.
     """
     start_time = datetime.datetime.now()
-    log_id = str(uuid.uuid4())
+    method = req.method if req else "GET"
+    user_agent = req.headers.get("user-agent") if req else None
+    ip_address = req.client.host if req and req.client else None
+    response_data = None 
+    status_code = 200
+    error_message = None
+    stack_trace = None
+    
     try:
-        user = crud.get_user(db, user_id=user_id)
+        user = get_user(db, user_id=user_id)
         if not user:
+            # DO NOT RAISE HERE. Set status and force an error state.
             status_code = 404
-            execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-            if background_tasks:
-                background_tasks.add_task(
-                    log_activity_in_task,
-                    user_id,
-                    "ERROR",
-                    req.method if req else "GET",
-                    "/users/{user_id}/recommendations/",
-                    status_code,
-                    execution_time_ms,
-                    req.client.host if req and req.client else None,
-                    req.headers.get("user-agent") if req else None
-                )
-            raise HTTPException(status_code=404, detail="User profile not found. Please create a profile first.")
+            raise ValueError("User profile not found. Please create a profile first.")
 
-        recommendations = recommendation_engine.generate_recommendations(user, db=db, background_tasks=background_tasks)
-        status_code = 200
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
+        # Business Logic
+        recommendations = recommendation_engine.generate_recommendations(
+            user, db=db, background_tasks=background_tasks
+        )
+        response_data = recommendations
+
+    except Exception as e:
+        # 2. Capture the error, but DO NOT re-raise it out of the function
+        stack_trace = traceback.format_exc()
+        
+        # Determine status code if it wasn't set manually above
+        if status_code == 200: 
+             status_code = 500
+        
+        # Capture the error message
+        error_message = str(e)
+        
+        # Prepare the error response content
+        response_data = {"detail": error_message}
+
+    finally:
+        # 3. Add the logging task
+        # Since we are inside the function, this executes before the return statement
+        execution_time_ms = int(
+            (datetime.datetime.now() - start_time).total_seconds() * 1000
+        )
+        log_level = "ERROR" if status_code >= 400 else "INFO"
+
         if background_tasks:
             background_tasks.add_task(
-                log_activity_in_task,
-                user_id,
-                "INFO",
-                req.method if req else "GET",
-                "/users/{user_id}/recommendations/",
-                status_code,
-                execution_time_ms,
-                req.client.host if req and req.client else None,
-                req.headers.get("user-agent") if req else None
+                logging_task,
+                user_id=user_id,
+                log_level_id=log_level,
+                http_method_id=method,
+                endpoint="/users/{user_id}/recommendations/",
+                status_code=status_code,
+                execution_time_ms=execution_time_ms,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                error_message=error_message,
+                stack_trace=stack_trace,
             )
-        return recommendations
-    except Exception as e:
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-        stack_trace = traceback.format_exc()
-        if isinstance(e, HTTPException):
-            status_code = e.status_code
-            detail = e.detail
-        else:
-            status_code = 500
-            detail = f"Error: {str(e)}"
-        # Log synchronously (no background tasks) on error
-        log_activity(
-            db,
-            user_id,
-            "ERROR",
-            req.method if req else "GET",
-            "/users/{user_id}/recommendations/",
-            status_code,
-            execution_time_ms,
-            req.client.host if req and req.client else None,
-            req.headers.get("user-agent") if req else None,
-            log_id
-        )
-        log_error(
-            db,
-            log_id,
-            str(e),
-            stack_trace
-        )
-        raise HTTPException(status_code=status_code, detail=detail)
 
-@app.get("/{user_id}/recommendations/{recommendation_id}/explanation", tags=["Recommendations"])
-def get_recommendation_explanation(user_id: str, recommendation_id: str, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None, req: Request = None):
+    # 4. MANUALLY RETURN THE RESPONSE
+    # This is the critical fix. We manually attach background_tasks to the response.
+    
+    if status_code >= 400:
+        return JSONResponse(
+            status_code=status_code, 
+            content=response_data, 
+            background=background_tasks # <--- CRITICAL: Attach tasks to error response
+        )
+    
+    # For success, FastAPI automatically attaches background_tasks from the parameter
+    return response_data
+
+
+@app.get(
+    "/{user_id}/recommendations/{recommendation_id}/explanation",
+    tags=["Recommendations"],
+)
+def get_recommendation_explanation(
+    user_id: str,
+    recommendation_id: str,
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
+    req: Request = None,
+):
     """
     Generate and retrieve an explanation for a specific recommendation.
     """
     start_time = datetime.datetime.now()
-    log_id = str(uuid.uuid4())
+    method = req.method if req else "GET"
+    user_agent = req.headers.get("user-agent") if req else None
+    ip_address = req.client.host if req and req.client else None
+    status_code = 200
+    error_message = None
+    stack_trace = None
+    response_data = None
+
     try:
-        recommendation = crud.get_recommendation(db, recommendation_id=recommendation_id)
+        recommendation = get_recommendation(db, recommendation_id=recommendation_id)
         if not recommendation:
-            execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-            raise HTTPException(status_code=404, detail="Recommendation not found.")
+            status_code = 404
+            raise ValueError("Recommendation not found.")
+
+        student_data = get_user(db, user_id=user_id)
+        if not student_data:
+            status_code = 404
+            raise ValueError("User profile not found. Please create a profile first.")
 
         if str(recommendation.user_id) != user_id:
-            execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-            raise HTTPException(status_code=403, detail="You do not have permission to access this recommendation.")
-
-        student_data = crud.get_user(db, user_id=user_id)
-        if not student_data:
-            execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-            raise HTTPException(status_code=404, detail="User profile not found. Please create a profile first.")
+            status_code = 403
+            raise ValueError("You do not have permission to access this recommendation.")
 
         explanation = recommendation.explanation
         if not explanation:
-            degree_program = crud.get_degree_program(db, program_id=recommendation.program_id)
-            explanation = recommendation_engine.generate_explanation(student_data, degree_program, recommendation, db=db, background_tasks=background_tasks)
+            degree_program = get_degree_program(
+                db, program_id=recommendation.program_id
+            )
+            explanation = recommendation_engine.generate_explanation(
+                student_data,
+                degree_program,
+                recommendation,
+                db=db,
+                background_tasks=background_tasks,
+            )
 
-        status_code = 200
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
+        response_data = {"recommendation_id": recommendation_id, "explanation": explanation}
+
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        if status_code == 200:
+            status_code = 500
+        error_message = str(e)
+        response_data = {"detail": error_message}
+
+    finally:
+        execution_time_ms = int(
+            (datetime.datetime.now() - start_time).total_seconds() * 1000
+        )
+        log_level = "ERROR" if status_code >= 400 else "INFO"
         if background_tasks:
             background_tasks.add_task(
-                log_activity,
-                db,
-                user_id,
-                "INFO",
-                req.method if req else "GET",
-                "/{user_id}/recommendations/{recommendation_id}/explanation",
-                status_code,
-                execution_time_ms,
-                req.client.host if req and req.client else None,
-                req.headers.get("user-agent") if req else None,
-                log_id
+                logging_task,
+                user_id=user_id,
+                log_level_id=log_level,
+                http_method_id=method,
+                endpoint="/{user_id}/recommendations/{recommendation_id}/explanation",
+                status_code=status_code,
+                execution_time_ms=execution_time_ms,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                error_message=error_message,
+                stack_trace=stack_trace,
             )
-        return {"recommendation_id": recommendation_id, "explanation": explanation}
-    except Exception as e:
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
-        stack_trace = traceback.format_exc()
-        if isinstance(e, HTTPException):
-            status_code = e.status_code
-            detail = e.detail
-        else:
-            status_code = 500
-            detail = f"Error: {str(e)}"
-        # Log synchronously (no background tasks) on error
-        log_activity(
-            db,
-            user_id,
-            "ERROR",
-            req.method if req else "GET",
-            "/{user_id}/recommendations/{recommendation_id}/explanation",
-            status_code,
-            execution_time_ms,
-            req.client.host if req and req.client else None,
-            req.headers.get("user-agent") if req else None,
-            log_id
-        )
-        log_error(
-            db,
-            log_id,
-            str(e),
-            stack_trace
-        )
-        raise HTTPException(status_code=status_code, detail=detail)
 
-# Chat Endpoint
+    if status_code >= 400:
+        return JSONResponse(
+            status_code=status_code,
+            content=response_data,
+            background=background_tasks
+        )
+    return response_data
+
+
 @app.post(
     "/users/{user_id}/chat",
     response_model=ChatResponse,
-    responses={
-        404: {"model": ErrorResponse, "description": "User or recommendation not found."},
-        500: {"model": ErrorResponse, "description": "Internal Server Error."},
-    },
     tags=["Chat"],
 )
 def chat_endpoint(
@@ -306,71 +347,77 @@ def chat_endpoint(
     - **Response**: `ChatResponse` - Contains the generated reply.
     """
     start_time = datetime.datetime.now()
-    log_id = str(uuid.uuid4())
-    recommendation_id = str(chat_request.recommendation_id) or recommendation_id
+    method = req.method if req else "POST"
+    user_agent = req.headers.get("user-agent") if req else None
+    ip_address = req.client.host if req and req.client else None
+    status_code = 200
+    error_message = None
+    stack_trace = None
+    response_data = None
+    recommendation_id = recommendation_id or chat_request.recommendation_id
 
     try:
-        # Validate user existence
-        user = crud.get_user(db, user_id)
+        user = get_user(db, user_id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found.")
+            status_code = 404
+            raise ValueError("User not found.")
 
-        # Fetch user interests
-        personal_interests = ', '.join([pi.interest for pi in crud.get_personal_interests(db, user_id)])
-
-        # Validate recommendation ownership if recommendation_id is provided
-        recommendations = []
+        personal_interests = ", ".join(
+            [pi.interest for pi in get_personal_interests(db, user_id)]
+        )
         if recommendation_id:
-            recommendation = crud.get_recommendation(db, recommendation_id)
-            print(recommendation)
-            print(recommendation.user_id)
-            if not recommendation or str(recommendation.user_id) != user_id:
-                raise HTTPException(status_code=404, detail="Recommendation not found or access denied.")
+            recommendation = get_recommendation(
+                db, recommendation_id=recommendation_id
+            )
+            if not recommendation:
+                status_code = 404
+                raise ValueError("Recommendation not found.")
+            
+            if str(recommendation.user_id) != user_id:
+                status_code = 403
+                raise ValueError("You do not have permission to access this recommendation.")
+            
             recommendations = [recommendation]
         else:
-            # Fetch the last 5 recommendations for the user
-            recommendations = crud.get_last_5_recommendations(db, user_id)
-            # if not recommendations:
-                # raise HTTPException(status_code=404, detail="No recommendations found.")
-        print(recommendations)
-        # Process the chat request
-        response = ExplanationGenerator.process_chat_request(chat_request, recommendations, personal_interests)
+            recommendations = get_last_5_recommendations(db, user_id)
 
-        # Calculate execution time
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
+        response = ExplanationGenerator.process_chat_request(
+            chat_request, recommendations, personal_interests
+        )
 
-        # Log the request and response asynchronously
-        if background_tasks:
-            background_tasks.add_task(
-                log_activity_in_task,
-                user_id,
-                "INFO",
-                req.method if req else "POST",
-                "/users/{user_id}/chat",
-                200,
-                execution_time_ms,
-                req.client.host if req and req.client else None,
-                req.headers.get("user-agent") if req else None,
-            )
-
-        return response
+        response_data = response
 
     except Exception as e:
-        execution_time_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
         stack_trace = traceback.format_exc()
-        log_activity(
-            db,
-            user_id,
-            "ERROR",
-            req.method if req else "POST",
-            "/users/{user_id}/chat",
-            500,
-            execution_time_ms,
-            req.client.host if req and req.client else None,
-            req.headers.get("user-agent") if req else None,
-            log_id,
+        if status_code == 200:
+            status_code = 500
+        error_message = str(e)
+        response_data = {"detail": error_message}
+
+    finally:
+        execution_time_ms = int(
+            (datetime.datetime.now() - start_time).total_seconds() * 1000
         )
-        log_error(db, log_id, str(e), stack_trace)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        log_level = "ERROR" if status_code >= 400 else "INFO"
+        if background_tasks:
+            background_tasks.add_task(
+                logging_task,
+                user_id=user_id,
+                log_level_id=log_level,
+                http_method_id=method,
+                endpoint="/users/{user_id}/chat",
+                status_code=status_code,
+                execution_time_ms=execution_time_ms,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                error_message=error_message,
+                stack_trace=stack_trace,
+            )
 
-
+    if status_code >= 400:
+        return JSONResponse(
+            status_code=status_code,
+            content=response_data,
+            background=background_tasks
+        )
+    return response_data

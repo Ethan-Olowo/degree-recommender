@@ -44,25 +44,19 @@ class RecommendationEngine:
         """
         Generates a list of Degree Recommendations for the User and persists them in the database.
         """
-        # Prepare input_tensor from user (implement feature extraction as needed)
         category_preds = self.peer_clustering.recommend(user)
         self.categories = category_preds
+        
+         #Aggregate all confidences and add a single background task
+        confidences = [
+            {'predicted_category': cat['category'], 'prediction_confidence': cat['score']}
+            for cat in category_preds
+        ]
         # Save category predictions to DB in batch
-        if db is not None and background_tasks is not None:
-            # Aggregate all confidences and add a single background task
-            confidences = [
-                {'predicted_category': cat['category'], 'prediction_confidence': cat['score']}
-                for cat in category_preds
-            ]
-            if confidences:
-                background_tasks.add_task(save_category_confidences_batch_in_task, confidences, str(user.user_id))
-        elif db is not None:
-            confidences = [
-                {'predicted_category': cat['category'], 'prediction_confidence': cat['score']}
-                for cat in category_preds
-            ]
-            if confidences:
-                save_category_confidences_batch(db, confidences, str(user.user_id))
+        if db is not None and background_tasks is not None and confidences:
+            background_tasks.add_task(save_category_confidences_batch_in_task, confidences, str(user.user_id))
+        elif db is not None and confidences:
+            save_category_confidences_batch(db, confidences, str(user.user_id))
 
         if self.degree_programs == []:
             if db is not None:
@@ -74,7 +68,7 @@ class RecommendationEngine:
         self.subjects = get_subjects(db)
         self.industries = get_industries(db)
 
-        # Update attributes instead of reinitializing
+        # Update attributes
         self.content_based_filtering.all_subjects = [s.subject_name for s in self.subjects]
         self.content_based_filtering.all_industries = [i.industry_name for i in self.industries]
 
