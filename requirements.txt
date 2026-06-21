@@ -1,0 +1,16 @@
+fastapi[standard]
+uvicorn
+supabase
+python-dotenv
+pydantic
+python-dotenv
+psycopg2
+openai
+pandas
+numpy
+scikit-learn
+requests
+torch
+xgboost
+sentence-transformers
+pytest
