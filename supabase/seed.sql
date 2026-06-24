@@ -114,6 +114,443 @@ INSERT INTO countries (country_code, country_name) VALUES
 ('ZMB', 'Zambia'),
 ('ZWE', 'Zimbabwe');
 
+-- ==========================================
+-- SUBJECTS
+-- ==========================================
+
+INSERT INTO subjects (subject_name) VALUES
+('Mathematics'),
+('English'),
+('Physics'),
+('Chemistry'),
+('Biology'),
+('Geography'),
+('History'),
+('Computer Studies'),
+('Business Studies'),
+('Accounting'),
+('Economics'),
+('Agriculture'),
+('Art and Design'),
+('Literature'),
+('Religious Education'),
+('Technical Drawing'),
+('Statistics'),
+('Environmental Science'),
+('Entrepreneurship'),
+('Communication Skills');
+
+-- ==========================================
+-- DEGREE PROGRAMS
+-- ==========================================
+
+INSERT INTO degree_programs
+(program_name, program_type, category, description, minimum_gpa)
+VALUES
+(
+    'Bachelor of Computer Science',
+    'Bachelor',
+    'Technology',
+    'Focuses on software development, algorithms, artificial intelligence, databases, and computer systems.',
+    3.2
+),
+(
+    'Bachelor of Business Information Technology',
+    'Bachelor',
+    'Technology',
+    'Combines business management principles with information technology and software systems.',
+    3.0
+),
+(
+    'Bachelor of Data Science',
+    'Bachelor',
+    'Technology',
+    'Covers statistics, machine learning, analytics, data engineering, and visualization.',
+    3.3
+),
+(
+    'Bachelor of Software Engineering',
+    'Bachelor',
+    'Technology',
+    'Focuses on software architecture, development processes, testing, and deployment.',
+    3.2
+),
+(
+    'Bachelor of Civil Engineering',
+    'Bachelor',
+    'Engineering',
+    'Studies infrastructure design, construction, structural analysis, and project management.',
+    3.4
+),
+(
+    'Bachelor of Electrical Engineering',
+    'Bachelor',
+    'Engineering',
+    'Focuses on power systems, electronics, telecommunications, and control systems.',
+    3.4
+),
+(
+    'Bachelor of Mechanical Engineering',
+    'Bachelor',
+    'Engineering',
+    'Covers machine design, manufacturing systems, thermodynamics, and mechanics.',
+    3.4
+),
+(
+    'Bachelor of Medicine and Surgery',
+    'Bachelor',
+    'Health Sciences',
+    'Prepares students for medical practice through extensive clinical and scientific training.',
+    3.8
+),
+(
+    'Bachelor of Nursing',
+    'Bachelor',
+    'Health Sciences',
+    'Focuses on patient care, healthcare systems, and clinical practice.',
+    3.3
+),
+(
+    'Bachelor of Pharmacy',
+    'Bachelor',
+    'Health Sciences',
+    'Studies medications, pharmaceutical sciences, and patient care.',
+    3.5
+),
+(
+    'Bachelor of Education',
+    'Bachelor',
+    'Education',
+    'Prepares graduates for teaching, curriculum development, and educational leadership.',
+    2.8
+),
+(
+    'Bachelor of Accounting',
+    'Bachelor',
+    'Business',
+    'Focuses on financial reporting, auditing, taxation, and corporate finance.',
+    3.0
+),
+(
+    'Bachelor of Finance',
+    'Bachelor',
+    'Business',
+    'Covers investment analysis, financial management, banking, and risk assessment.',
+    3.1
+),
+(
+    'Bachelor of Economics',
+    'Bachelor',
+    'Business',
+    'Studies economic theory, policy, markets, and quantitative analysis.',
+    3.1
+),
+(
+    'Bachelor of Marketing',
+    'Bachelor',
+    'Business',
+    'Focuses on consumer behavior, branding, market research, and digital marketing.',
+    2.9
+),
+(
+    'Bachelor of Agriculture',
+    'Bachelor',
+    'Agriculture',
+    'Studies crop production, livestock management, agribusiness, and sustainability.',
+    2.8
+),
+(
+    'Bachelor of Environmental Science',
+    'Bachelor',
+    'Science',
+    'Focuses on environmental protection, sustainability, and resource management.',
+    3.0
+),
+(
+    'Bachelor of Architecture',
+    'Bachelor',
+    'Design',
+    'Combines design, engineering, and urban planning principles.',
+    3.2
+),
+(
+    'Bachelor of Journalism and Media Studies',
+    'Bachelor',
+    'Media',
+    'Focuses on reporting, digital media, communication, and content production.',
+    2.8
+),
+(
+    'Bachelor of Tourism and Hospitality Management',
+    'Bachelor',
+    'Hospitality',
+    'Prepares graduates for tourism, hotel operations, and hospitality management.',
+    2.7
+);
+
+-- ==========================================
+-- DEGREE ↔ INDUSTRY RELATIONSHIPS
+-- ==========================================
+
+INSERT INTO degree_industries (program_id, industry_id)
+SELECT dp.program_id, i.industry_id
+FROM degree_programs dp
+JOIN industries i ON (
+    (dp.program_name = 'Bachelor of Computer Science'
+        AND i.industry_name = 'Information Technology')
+ OR (dp.program_name = 'Bachelor of Business Information Technology'
+        AND i.industry_name IN ('Information Technology','Financial Services'))
+ OR (dp.program_name = 'Bachelor of Data Science'
+        AND i.industry_name IN ('Information Technology','Financial Services'))
+ OR (dp.program_name = 'Bachelor of Software Engineering'
+        AND i.industry_name = 'Information Technology')
+ OR (dp.program_name = 'Bachelor of Civil Engineering'
+        AND i.industry_name IN ('Construction','Energy and Utilities'))
+ OR (dp.program_name = 'Bachelor of Electrical Engineering'
+        AND i.industry_name IN ('Energy and Utilities','Manufacturing'))
+ OR (dp.program_name = 'Bachelor of Mechanical Engineering'
+        AND i.industry_name IN ('Manufacturing','Energy and Utilities'))
+ OR (dp.program_name = 'Bachelor of Medicine and Surgery'
+        AND i.industry_name = 'Healthcare')
+ OR (dp.program_name = 'Bachelor of Nursing'
+        AND i.industry_name = 'Healthcare')
+ OR (dp.program_name = 'Bachelor of Pharmacy'
+        AND i.industry_name = 'Healthcare')
+ OR (dp.program_name = 'Bachelor of Education'
+        AND i.industry_name = 'Education')
+ OR (dp.program_name = 'Bachelor of Accounting'
+        AND i.industry_name IN ('Financial Services','Professional Services'))
+ OR (dp.program_name = 'Bachelor of Finance'
+        AND i.industry_name = 'Financial Services')
+ OR (dp.program_name = 'Bachelor of Economics'
+        AND i.industry_name IN ('Financial Services','Public Administration'))
+ OR (dp.program_name = 'Bachelor of Marketing'
+        AND i.industry_name IN ('Retail and Consumer Goods','Professional Services'))
+ OR (dp.program_name = 'Bachelor of Agriculture'
+        AND i.industry_name = 'Agriculture')
+ OR (dp.program_name = 'Bachelor of Environmental Science'
+        AND i.industry_name IN ('Water and Waste Management','Energy and Utilities'))
+ OR (dp.program_name = 'Bachelor of Architecture'
+        AND i.industry_name = 'Construction')
+ OR (dp.program_name = 'Bachelor of Journalism and Media Studies'
+        AND i.industry_name = 'Media and Entertainment')
+ OR (dp.program_name = 'Bachelor of Tourism and Hospitality Management'
+        AND i.industry_name = 'Tourism and Hospitality')
+);
+
+-- ==========================================
+-- SUBJECT REQUIREMENTS
+-- ==========================================
+
+INSERT INTO subject_requirements
+(program_id, subject_id, requirement_detail)
+SELECT dp.program_id, s.subject_id,
+CASE
+
+    -- Computer Science
+    WHEN dp.program_name = 'Bachelor of Computer Science'
+         AND s.subject_name = 'Mathematics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Computer Science'
+         AND s.subject_name = 'Computer Studies' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Computer Science'
+         AND s.subject_name = 'Physics' THEN 'B+'
+
+    -- BBIT
+    WHEN dp.program_name = 'Bachelor of Business Information Technology'
+         AND s.subject_name = 'Mathematics' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Business Information Technology'
+         AND s.subject_name = 'Computer Studies' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Business Information Technology'
+         AND s.subject_name = 'Business Studies' THEN 'B'
+
+    -- Data Science
+    WHEN dp.program_name = 'Bachelor of Data Science'
+         AND s.subject_name = 'Mathematics' THEN 'A'
+    WHEN dp.program_name = 'Bachelor of Data Science'
+         AND s.subject_name = 'Statistics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Data Science'
+         AND s.subject_name = 'Computer Studies' THEN 'B+'
+
+    -- Software Engineering
+    WHEN dp.program_name = 'Bachelor of Software Engineering'
+         AND s.subject_name = 'Mathematics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Software Engineering'
+         AND s.subject_name = 'Computer Studies' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Software Engineering'
+         AND s.subject_name = 'Physics' THEN 'B'
+
+    -- Civil Engineering
+    WHEN dp.program_name = 'Bachelor of Civil Engineering'
+         AND s.subject_name = 'Mathematics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Civil Engineering'
+         AND s.subject_name = 'Physics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Civil Engineering'
+         AND s.subject_name = 'Technical Drawing' THEN 'B+'
+
+    -- Electrical Engineering
+    WHEN dp.program_name = 'Bachelor of Electrical Engineering'
+         AND s.subject_name = 'Mathematics' THEN 'A'
+    WHEN dp.program_name = 'Bachelor of Electrical Engineering'
+         AND s.subject_name = 'Physics' THEN 'A'
+    WHEN dp.program_name = 'Bachelor of Electrical Engineering'
+         AND s.subject_name = 'Computer Studies' THEN 'B+'
+
+    -- Mechanical Engineering
+    WHEN dp.program_name = 'Bachelor of Mechanical Engineering'
+         AND s.subject_name = 'Mathematics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Mechanical Engineering'
+         AND s.subject_name = 'Physics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Mechanical Engineering'
+         AND s.subject_name = 'Technical Drawing' THEN 'B+'
+
+    -- Medicine
+    WHEN dp.program_name = 'Bachelor of Medicine and Surgery'
+         AND s.subject_name = 'Biology' THEN 'A'
+    WHEN dp.program_name = 'Bachelor of Medicine and Surgery'
+         AND s.subject_name = 'Chemistry' THEN 'A'
+    WHEN dp.program_name = 'Bachelor of Medicine and Surgery'
+         AND s.subject_name = 'Physics' THEN 'A-'
+
+    -- Nursing
+    WHEN dp.program_name = 'Bachelor of Nursing'
+         AND s.subject_name = 'Biology' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Nursing'
+         AND s.subject_name = 'Chemistry' THEN 'B+'
+
+    -- Pharmacy
+    WHEN dp.program_name = 'Bachelor of Pharmacy'
+         AND s.subject_name = 'Biology' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Pharmacy'
+         AND s.subject_name = 'Chemistry' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Pharmacy'
+         AND s.subject_name = 'Mathematics' THEN 'B+'
+
+    -- Education
+    WHEN dp.program_name = 'Bachelor of Education'
+         AND s.subject_name = 'English' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Education'
+         AND s.subject_name = 'History' THEN 'C+'
+    WHEN dp.program_name = 'Bachelor of Education'
+         AND s.subject_name = 'Literature' THEN 'B'
+
+    -- Accounting
+    WHEN dp.program_name = 'Bachelor of Accounting'
+         AND s.subject_name = 'Accounting' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Accounting'
+         AND s.subject_name = 'Mathematics' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Accounting'
+         AND s.subject_name = 'Business Studies' THEN 'B'
+
+    -- Finance
+    WHEN dp.program_name = 'Bachelor of Finance'
+         AND s.subject_name = 'Mathematics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Finance'
+         AND s.subject_name = 'Accounting' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Finance'
+         AND s.subject_name = 'Economics' THEN 'B+'
+
+    -- Economics
+    WHEN dp.program_name = 'Bachelor of Economics'
+         AND s.subject_name = 'Economics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Economics'
+         AND s.subject_name = 'Mathematics' THEN 'A-'
+    WHEN dp.program_name = 'Bachelor of Economics'
+         AND s.subject_name = 'Statistics' THEN 'B+'
+
+    -- Marketing
+    WHEN dp.program_name = 'Bachelor of Marketing'
+         AND s.subject_name = 'Business Studies' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Marketing'
+         AND s.subject_name = 'English' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Marketing'
+         AND s.subject_name = 'Communication Skills' THEN 'B'
+
+    -- Agriculture
+    WHEN dp.program_name = 'Bachelor of Agriculture'
+         AND s.subject_name = 'Agriculture' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Agriculture'
+         AND s.subject_name = 'Biology' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Agriculture'
+         AND s.subject_name = 'Chemistry' THEN 'B'
+
+    -- Environmental Science
+    WHEN dp.program_name = 'Bachelor of Environmental Science'
+         AND s.subject_name = 'Biology' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Environmental Science'
+         AND s.subject_name = 'Chemistry' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Environmental Science'
+         AND s.subject_name = 'Environmental Science' THEN 'B'
+
+    -- Architecture
+    WHEN dp.program_name = 'Bachelor of Architecture'
+         AND s.subject_name = 'Mathematics' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Architecture'
+         AND s.subject_name = 'Art and Design' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Architecture'
+         AND s.subject_name = 'Technical Drawing' THEN 'A-'
+
+    -- Journalism
+    WHEN dp.program_name = 'Bachelor of Journalism and Media Studies'
+         AND s.subject_name = 'English' THEN 'B+'
+    WHEN dp.program_name = 'Bachelor of Journalism and Media Studies'
+         AND s.subject_name = 'Literature' THEN 'B'
+    WHEN dp.program_name = 'Bachelor of Journalism and Media Studies'
+         AND s.subject_name = 'Communication Skills' THEN 'B+'
+
+    -- Tourism
+    WHEN dp.program_name = 'Bachelor of Tourism and Hospitality Management'
+         AND s.subject_name = 'Geography' THEN 'C+'
+    WHEN dp.program_name = 'Bachelor of Tourism and Hospitality Management'
+         AND s.subject_name = 'Business Studies' THEN 'C+'
+    WHEN dp.program_name = 'Bachelor of Tourism and Hospitality Management'
+         AND s.subject_name = 'Communication Skills' THEN 'B'
+
+END
+FROM degree_programs dp
+JOIN subjects s ON (
+    (dp.program_name = 'Bachelor of Computer Science'
+        AND s.subject_name IN ('Mathematics','Computer Studies','Physics'))
+ OR (dp.program_name = 'Bachelor of Business Information Technology'
+        AND s.subject_name IN ('Mathematics','Computer Studies','Business Studies'))
+ OR (dp.program_name = 'Bachelor of Data Science'
+        AND s.subject_name IN ('Mathematics','Statistics','Computer Studies'))
+ OR (dp.program_name = 'Bachelor of Software Engineering'
+        AND s.subject_name IN ('Mathematics','Computer Studies','Physics'))
+ OR (dp.program_name = 'Bachelor of Civil Engineering'
+        AND s.subject_name IN ('Mathematics','Physics','Technical Drawing'))
+ OR (dp.program_name = 'Bachelor of Electrical Engineering'
+        AND s.subject_name IN ('Mathematics','Physics','Computer Studies'))
+ OR (dp.program_name = 'Bachelor of Mechanical Engineering'
+        AND s.subject_name IN ('Mathematics','Physics','Technical Drawing'))
+ OR (dp.program_name = 'Bachelor of Medicine and Surgery'
+        AND s.subject_name IN ('Biology','Chemistry','Physics'))
+ OR (dp.program_name = 'Bachelor of Nursing'
+        AND s.subject_name IN ('Biology','Chemistry'))
+ OR (dp.program_name = 'Bachelor of Pharmacy'
+        AND s.subject_name IN ('Biology','Chemistry','Mathematics'))
+ OR (dp.program_name = 'Bachelor of Education'
+        AND s.subject_name IN ('English','History','Literature'))
+ OR (dp.program_name = 'Bachelor of Accounting'
+        AND s.subject_name IN ('Accounting','Mathematics','Business Studies'))
+ OR (dp.program_name = 'Bachelor of Finance'
+        AND s.subject_name IN ('Mathematics','Accounting','Economics'))
+ OR (dp.program_name = 'Bachelor of Economics'
+        AND s.subject_name IN ('Economics','Mathematics','Statistics'))
+ OR (dp.program_name = 'Bachelor of Marketing'
+        AND s.subject_name IN ('Business Studies','English','Communication Skills'))
+ OR (dp.program_name = 'Bachelor of Agriculture'
+        AND s.subject_name IN ('Agriculture','Biology','Chemistry'))
+ OR (dp.program_name = 'Bachelor of Environmental Science'
+        AND s.subject_name IN ('Biology','Chemistry','Environmental Science'))
+ OR (dp.program_name = 'Bachelor of Architecture'
+        AND s.subject_name IN ('Mathematics','Art and Design','Technical Drawing'))
+ OR (dp.program_name = 'Bachelor of Journalism and Media Studies'
+        AND s.subject_name IN ('English','Literature','Communication Skills'))
+ OR (dp.program_name = 'Bachelor of Tourism and Hospitality Management'
+        AND s.subject_name IN ('Geography','Business Studies','Communication Skills'))
+);
+
+
 INSERT INTO public.indicator_types (indicator_type_id, indicator_name, description, unit) 
 VALUES
 (
