@@ -1,5 +1,4 @@
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -14,8 +13,6 @@ import ComparePrograms from "./pages/Student/ComparePrograms";
 import ProfileCreate from "./pages/Student/ProfileCreate";
 import Profile from "./pages/Student/Profile";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
-import { useContext } from "react";
-import { AuthContext } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/AuthContext";
 import ManageDegrees from "./pages/Admin/ManageDegrees";
 import NotFound from "./pages/NotFound";
@@ -69,7 +66,6 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
         <BrowserRouter>
           <AuthProvider>
             <AppRoutes />
