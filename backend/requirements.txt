@@ -4,7 +4,6 @@ supabase
 python-dotenv
 pydantic
 python-dotenv
-psycopg2
 openai
 pandas
 numpy
