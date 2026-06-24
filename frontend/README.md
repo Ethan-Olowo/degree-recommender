@@ -1,73 +1,93 @@
-# Welcome to your Lovable project
+# Frontend (Degree Recommender)
 
-## Project info
+React + TypeScript frontend for the Degree Recommender platform.
 
-**URL**: https://lovable.dev/projects/e364755c-b75d-4b2e-b9b5-d129ea3547af
+This app provides:
 
-## How can I edit this code?
+- Student experience: profile creation, recommendation dashboard, degree exploration, comparison, recommendation details, and chat assistant.
+- Admin experience: management pages (degrees, subjects, industries, algorithms) and analytics/reporting views.
+- Authentication and role-based routing backed by Supabase.
 
-There are several ways of editing your application.
+## Stack
 
-**Use Lovable**
+- React 18 + TypeScript
+- Vite 5
+- React Router
+- TanStack Query
+- Supabase JS
+- Tailwind CSS + shadcn/ui
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e364755c-b75d-4b2e-b9b5-d129ea3547af) and start prompting.
+## Requirements
 
-Changes made via Lovable will be committed automatically to this repo.
+- Node.js 18+ (or a current LTS release)
+- npm
+- Running backend API (default expected at `http://localhost:8000`)
+- Supabase instance configured for this project (local dev defaults are currently wired in `src/integrations/supabase/client.ts`)
 
-**Use your preferred IDE**
+## Setup
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+From this folder (`frontend/`):
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
 ```
 
-**Edit a file directly in GitHub**
+## Available Scripts
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+# Start dev server
+npm run dev
 
-**Use GitHub Codespaces**
+# Build production bundle
+npm run build
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Build with development mode
+npm run build:dev
 
-## What technologies are used for this project?
+# Lint the codebase
+npm run lint
 
-This project is built with:
+# Preview the built app locally
+npm run preview
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Routing Overview
 
-## How can I deploy this project?
+Main routes are defined in `src/App.tsx`:
 
-Simply open [Lovable](https://lovable.dev/projects/e364755c-b75d-4b2e-b9b5-d129ea3547af) and click on Share -> Publish.
+- Public: `/`, `/auth`
+- Student: `/dashboard`, `/explore`, `/degree/:programId`, `/compare`, `/profile`, `/profile/create`, `/recommendation/:recommendationId`
+- Admin: `/admin`, `/admin/degrees`, `/admin/subjects`, `/admin/industries`, `/admin/algorithms`, and report routes under `/admin/reports/*`
 
-## Can I connect a custom domain to my Lovable project?
+Dashboard routing is role-aware via auth context:
 
-Yes, you can!
+- Admin users are routed to admin dashboard.
+- Non-admin users are routed to student dashboard.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Backend and Data Integration
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The frontend uses two data paths:
+
+- Supabase client operations (auth, profile/admin data lookups, and RPC usage).
+- Direct backend API calls for recommendations, explanations, and chat.
+
+Current API calls in the codebase target `http://localhost:8000` directly. If you run the backend elsewhere, update those endpoints or centralize them behind a shared config.
+
+## Directory Map
+
+- `src/pages/Student/`: student-facing pages
+- `src/pages/Admin/`: admin-facing pages and reports
+- `src/components/`: shared UI and app components
+- `src/contexts/`: app-wide context providers (auth)
+- `src/integrations/supabase/`: Supabase client and generated types
+- `src/hooks/`: custom hooks
+
+## Development Notes
+
+- Keep frontend and backend contracts in sync when changing recommendation/chat endpoints.
+- If auth or role behavior changes, verify both student and admin dashboard flows.
+- Run lint before committing:
+
+```sh
+npm run lint
+```
