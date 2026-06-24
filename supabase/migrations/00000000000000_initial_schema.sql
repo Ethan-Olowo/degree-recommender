@@ -15,8 +15,8 @@ CREATE TABLE public.users (
 );
 
 CREATE TABLE public.countries (
-    country_code TEXT PRIMARY KEY,
-    country_name TEXT NOT NULL
+    country_code CHAR(3) PRIMARY KEY,
+    country_name VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE public.industries (
